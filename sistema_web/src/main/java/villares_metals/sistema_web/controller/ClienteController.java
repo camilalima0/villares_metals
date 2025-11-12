@@ -38,6 +38,5 @@ public class ClienteController {
     public Cliente putCliente(@RequestBody Cliente cliente){
         return clienteService.postCliente(cliente);
     }
-    
-    
+      
 }
