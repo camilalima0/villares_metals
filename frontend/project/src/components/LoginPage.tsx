@@ -5,6 +5,7 @@ import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Factory } from 'lucide-react';
+import { verifyLogin, registerUser } from '../api/authService';
 
 interface LoginPageProps {
   onLogin: (username: string) => void;
@@ -15,22 +16,61 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [loginPassword, setLoginPassword] = useState('');
   const [registerUsername, setRegisterUsername] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
+  const [error, setError] = useState<string | null>(null); // Novo estado para mensagens de erro
+  const [isLoading, setIsLoading] = useState<boolean>(false); // Novo estado para carregamento
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setIsLoading(true);
     if (loginUsername && loginPassword) {
-      // Mock authentication - in real app, verify against backend
-      onLogin(loginUsername);
+      const success = await verifyLogin({
+        userFuncionario: loginUsername,
+        senhaFuncionario: loginPassword
+      });
+      setIsLoading(false);
+
+      if (success) {
+        // Sucesso: Chama o onLogin do App.tsx, que persiste o usuário
+        onLogin(loginUsername);
+      } else {
+        // Falha: Spring Security devolveu 401 Unauthorized
+        setError('Credenciais inválidas. Usuário ou senha incorretos.');
+      }
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
     if (registerUsername && registerPassword) {
-      // Mock registration - in real app, save to backend
-      onLogin(registerUsername);
+      // Lógica para verificar se o usuário já existe (opcional)
+      // const userExists = await checkIfUserExists(registerUsername);
+      // if (userExists) { setError('Usuário já cadastrado.'); setIsLoading(false); return; }
+
+      const success = await registerUser({
+        userFuncionario: registerUsername,
+        senhaFuncionario: registerPassword
+      });
+
+      setIsLoading(false);
+
+      if (success) {
+        setError('✅ Cadastro realizado com sucesso! Use a aba Login.');
+        // Limpa o formulário de registro
+        setRegisterUsername('');
+        setRegisterPassword('');
+        // Se você quiser que o usuário vá diretamente para o dashboard após o cadastro:
+        onLogin(registerUsername);
+      } else {
+        // Este erro pode ser de rede ou se o backend rejeitar (ex: 409 Conflict)
+        setError('❌ Falha no cadastro. O usuário pode já existir ou houve um erro no servidor.');
+      }
     }
-  };
+  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -51,8 +91,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               Sistema de Gestão <span className="text-orange-500">Villares Metals</span>
             </h1>
             <p className="text-slate-300 text-lg">
-              Gerencie suas ordens de serviço, produtos, clientes e equipe de forma 
-              eficiente e integrada. Controle total da sua operação metalúrgica em 
+              Gerencie suas ordens de serviço, produtos, clientes e equipe de forma
+              eficiente e integrada. Controle total da sua operação metalúrgica em
               um só lugar.
             </p>
             <div className="grid grid-cols-2 gap-4 pt-4">
@@ -86,16 +126,21 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="register">Cadastro</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="login">
-                <Card>
+                <Card className="border-slate-300">
                   <CardHeader>
                     <CardTitle>Entrar no Sistema</CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-slate-400">
                       Digite suas credenciais para acessar
                     </CardDescription>
                   </CardHeader>
+                  {/* Adicione o bloco de erro/loading aqui */}
+                  {error && <p className="text-sm text-red-500 p-2">{error}</p>}
                   <CardContent>
+                    {/* Bloco de erro */}
+                    {error && <p className="text-sm text-red-500 p-2 mb-4 bg-red-900/30 rounded-md">{error}</p>}
+
                     <form onSubmit={handleLogin} className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="login-username">Usuário</Label>
@@ -105,6 +150,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                           value={loginUsername}
                           onChange={(e) => setLoginUsername(e.target.value)}
                           required
+                          className="bg-white border-slate-300 text-gray-900"
                         />
                       </div>
                       <div className="space-y-2">
@@ -116,10 +162,11 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
                           required
+                          className="bg-white border-slate-300 text-gray-900"
                         />
                       </div>
-                      <Button type="submit" className="w-full">
-                        Entrar
+                      <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? 'Aguarde...' : 'Entrar'}
                       </Button>
                     </form>
                   </CardContent>
@@ -127,13 +174,16 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               </TabsContent>
 
               <TabsContent value="register">
-                <Card>
+                <Card className="border-slate-300">
                   <CardHeader>
                     <CardTitle>Criar Conta</CardTitle>
-                    <CardDescription>
+                    <CardDescription className="text-slate-400">
                       Cadastre-se para acessar o sistema
                     </CardDescription>
                   </CardHeader>
+                  {/* Adicione o bloco de erro/loading aqui */}
+                  {error && <p className="text-sm text-red-500 p-2">{error}</p>}
+
                   <CardContent>
                     <form onSubmit={handleRegister} className="space-y-4">
                       <div className="space-y-2">
@@ -144,6 +194,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                           value={registerUsername}
                           onChange={(e) => setRegisterUsername(e.target.value)}
                           required
+                          className="bg-white border-slate-300 text-gray-900"
                         />
                       </div>
                       <div className="space-y-2">
@@ -155,15 +206,17 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                           value={registerPassword}
                           onChange={(e) => setRegisterPassword(e.target.value)}
                           required
+                          className="bg-white border-slate-300 text-gray-900"
                         />
                       </div>
-                      <Button type="submit" className="w-full">
-                        Cadastrar
+                      <Button type="submit" className="w-full" disabled={isLoading}>
+                        {isLoading ? 'Aguarde...' : 'Cadastrar'}
                       </Button>
                     </form>
                   </CardContent>
                 </Card>
               </TabsContent>
+
             </Tabs>
           </div>
         </div>

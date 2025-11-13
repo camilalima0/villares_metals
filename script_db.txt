@@ -1,0 +1,87 @@
+CREATE DATABASE villares_db; 
+
+ 
+
+USE villares_db; 
+
+ 
+
+CREATE TABLE dados_cliente( 
+
+    id_cliente INT PRIMARY KEY AUTO_INCREMENT, 
+
+    nome_cliente TEXT NOT NULL, 
+
+    cnpj_cliente TEXT NOT NULL, 
+
+    telefone_cliente TEXT NOT NULL, 
+
+    email_cliente TEXT NOT NULL 
+
+); 
+
+ 
+
+CREATE TABLE ordem_servico( 
+
+    n_os INT PRIMARY KEY AUTO_INCREMENT, 
+
+    data_entrega DATE NOT NULL, 
+
+    data_aprovacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+
+    status_pagamento BOOLEAN DEFAULT FALSE, 
+
+    status_producao ENUM('FILA', 'PRODUCAO', 'PRONTO') DEFAULT 'FILA' NOT NULL, 
+
+    valor_servico DECIMAL(10,2) NOT NULL, 
+
+    descricao_pedido TEXT, 
+
+    id_cliente INT, 
+
+    FOREIGN KEY (id_cliente) 
+
+    REFERENCES dados_cliente(id_cliente) 
+
+); 
+
+ 
+
+CREATE TABLE produto( 
+
+    id_produto INT PRIMARY KEY AUTO_INCREMENT, 
+
+    nome_produto TEXT NOT NULL, 
+
+    peso_entrada DECIMAL(10,2), 
+
+    peso_saida DECIMAL(10,2) 
+
+); 
+
+ 
+
+CREATE TABLE ordena_produto( 
+
+    id_os INT, 
+
+    id_produto INT, 
+
+    quantidade INT NOT NULL, 
+
+    FOREIGN KEY (id_os) REFERENCES ordem_servico(n_os), 
+
+    FOREIGN KEY (id_produto) REFERENCES produto(id_produto) 
+
+); 
+
+CREATE TABLE funcionario (  
+
+    id_funcionario INT PRIMARY KEY AUTO_INCREMENT,  
+
+    username VARCHAR(100) NOT NULL UNIQUE,  
+
+    senha_hash VARCHAR(255) NOT NULL 
+
+); 

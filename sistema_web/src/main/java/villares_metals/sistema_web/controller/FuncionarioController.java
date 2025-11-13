@@ -24,6 +24,11 @@ public class FuncionarioController {
         return funcionarioService.getFuncionario(id);
     }
     
+    @GetMapping(path = "/funcionarios/username/{user}")
+    public Funcionario getFuncionarioExiste(@PathVariable("user") String user) {
+        return funcionarioService.verificarLoginExistente(user);
+    }
+    
     @GetMapping(path = "/funcionarios")
     public List<Funcionario> listarFuncionarios() {
         return funcionarioService.listarFuncionarios();

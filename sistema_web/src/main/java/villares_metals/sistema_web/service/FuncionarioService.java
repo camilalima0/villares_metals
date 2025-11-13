@@ -59,6 +59,17 @@ public class FuncionarioService {
         return false;
     }
     
+    public Funcionario verificarLoginExistente(String username) {
+        Funcionario funcionario = funcionarioRepository.findFuncionarioByUser(username);
+        
+        if (funcionario != null) {
+            // Compara o hash armazenado com o hash da senha de texto puro
+            // O próprio BCryptPasswordEncoder faz a comparação segura
+            return funcionario;
+        }
+        return null;
+    }
+    
     @Transactional
     public void deleteFuncionario(Integer id) {
         funcionarioRepository.deleteById(id);
