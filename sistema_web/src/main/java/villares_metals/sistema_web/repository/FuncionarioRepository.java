@@ -10,5 +10,8 @@ import villares_metals.sistema_web.domain.Funcionario;
 public interface FuncionarioRepository extends JpaRepository<Funcionario, Integer>{
     @Query("select f from Funcionario f where f.idFuncionario = :id")
     public Funcionario findFuncionarioById(@Param("id") Integer idFuncionario);
+    
+    @Query("select f from Funcionario f where f.userFuncionario = :username")
+    public Funcionario findFuncionarioByUser(@Param("username") String userFuncionario);
 }
 
