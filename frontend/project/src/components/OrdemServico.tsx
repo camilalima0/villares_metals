@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Search, Plus, Edit, Trash2, Filter } from 'lucide-react';
@@ -8,47 +8,25 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
+import { useOrdensServico } from '../hooks/useOrdensServico'; // ✅ IMPORTAR HOOK
 
+type StatusProducao = 'FILA' | 'PRODUCAO' | 'PRONTO';
 interface OrdemServicoData {
   n_os: number;
   data_entrega: string;
   data_aprovacao: string;
   status_pagamento: boolean;
-  status_producao: 'FILA' | 'PRODUCAO' | 'PRONTO';
+  status_producao: StatusProducao;
   valor_servico: number;
   descricao_pedido: string;
   id_cliente: number;
   nome_cliente: string;
 }
 
-// Mock data
-const initialData: OrdemServicoData[] = [
-  {
-    n_os: 1,
-    data_entrega: '2025-12-01',
-    data_aprovacao: '2025-11-10 10:30:00',
-    status_pagamento: true,
-    status_producao: 'PRODUCAO',
-    valor_servico: 15000.00,
-    descricao_pedido: 'Peças metálicas especiais - lote 100 unidades',
-    id_cliente: 1,
-    nome_cliente: 'Industria ABC Ltda'
-  },
-  {
-    n_os: 2,
-    data_entrega: '2025-11-25',
-    data_aprovacao: '2025-11-08 14:20:00',
-    status_pagamento: false,
-    status_producao: 'FILA',
-    valor_servico: 8500.00,
-    descricao_pedido: 'Componentes automotivos',
-    id_cliente: 2,
-    nome_cliente: 'Auto Parts S.A.'
-  }
-];
-
 export default function OrdemServico() {
-  const [data, setData] = useState<OrdemServicoData[]>(initialData);
+  // ✅ USAR HOOK EM VEZ DE useState
+  const { ordens, loading, error, carregarOrdens, adicionarOrdem, atualizarOrdem, deletarOrdem } = useOrdensServico();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
@@ -56,51 +34,112 @@ export default function OrdemServico() {
   const [editingItem, setEditingItem] = useState<OrdemServicoData | null>(null);
   const [formData, setFormData] = useState<Partial<OrdemServicoData>>({});
 
-  const filteredData = data.filter(item =>
+  // ✅ CARREGAR ORDENS AO INICIAR
+  useEffect(() => {
+    carregarOrdens();
+  }, []);
+
+  // ✅ FILTRAR DADOS REAIS
+  const filteredData = ordens.filter(item =>
     Object.values(item).some(value =>
       value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
 
-  const handleDelete = (n_os: number) => {
-    if (confirm('Tem certeza que deseja deletar esta ordem de serviço?')) {
-      setData(data.filter(item => item.n_os !== n_os));
-      setSelectedRow(null);
+  const handleDelete = async (n_os: number) => {
+    if (window.confirm('Tem certeza que deseja deletar esta ordem de serviço?')) {
+      const success = await deletarOrdem(n_os);
+      if (success) {
+        setSelectedRow(null);
+        carregarOrdens(); // Recarrega a lista
+      } else {
+        alert('Erro ao deletar ordem de serviço');
+      }
     }
   };
 
   const handleEdit = (item: OrdemServicoData) => {
     setEditingItem(item);
-    setFormData(item);
+    // CORREÇÃO: Formata a data (que vem como string ISO) para o formato YYYY-MM-DD 
+    // que o <input type="date"> exige.
+    const formattedItem = {
+      ...item,
+      data_entrega: item.data_entrega ? new Date(item.data_entrega).toISOString().split('T')[0] : '',
+    };
+    setFormData(formattedItem);
     setShowForm(true);
   };
 
   const handleAdd = () => {
     setEditingItem(null);
-    setFormData({});
+    // Define valores padrão para evitar 'undefined' nos inputs controlados
+    setFormData({
+      nome_cliente: '',
+      data_entrega: '',
+      valor_servico: 0,
+      status_producao: 'FILA',
+      status_pagamento: false,
+      descricao_pedido: ''
+    });
     setShowForm(true);
   };
 
-  const handleSave = () => {
-    if (editingItem) {
-      setData(data.map(item => item.n_os === editingItem.n_os ? { ...item, ...formData } as OrdemServicoData : item));
-    } else {
-      const newItem = {
-        ...formData,
-        n_os: Math.max(...data.map(d => d.n_os), 0) + 1,
-        data_aprovacao: new Date().toISOString(),
-      } as OrdemServicoData;
-      setData([...data, newItem]);
+  const handleSave = async () => {
+    try {
+      // Validação simples
+      if (!formData.nome_cliente || !formData.data_entrega || !formData.valor_servico) {
+        alert("Cliente, Data de Entrega e Valor são obrigatórios.");
+        return;
+      }
+      if (editingItem) {
+        // ✅ EDITAR ORDEM EXISTENTE
+        const success = await atualizarOrdem(editingItem.n_os, formData as OrdemServicoData);
+        if (success) {
+          carregarOrdens(); // Recarrega a lista
+        }
+      } else {
+        // ✅ ADICIONAR NOVA ORDEM
+        const success = await adicionarOrdem(formData as Omit<OrdemServicoData, 'n_os'>);
+        if (success) {
+          carregarOrdens(); // Recarrega a lista
+        }
+      }
+      setShowForm(false);
+      setFormData({});
+    } catch (err) {
+      alert('Erro ao salvar ordem de serviço');
     }
-    setShowForm(false);
-    setFormData({});
   };
+
+  // ✅ ADICIONAR FEEDBACK DE CARREGAMENTO E ERRO
+  if (loading) {
+    return (
+      <div className="p-8 flex justify-center items-center">
+        <p>Carregando ordens de serviço...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <div className="text-red-500 bg-red-100 p-4 rounded-lg">
+          Erro: {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-3xl mb-2">Ordens de Serviço</h1>
         <p className="text-slate-600">Gerencie todas as ordens de serviço da empresa</p>
+
+        {/* ✅ MOSTRAR CONTADOR DE ORDENS REAIS */}
+        <p className="text-sm text-slate-500 mt-2">
+          {ordens.length} ordem(ns) de serviço cadastrada(s)
+        </p>
       </div>
 
       {/* Search and Actions */}
@@ -120,7 +159,7 @@ export default function OrdemServico() {
         </Button>
         <Button onClick={handleAdd}>
           <Plus className="h-4 w-4 mr-2" />
-          Adicionar Novo
+          Adicionar Nova
         </Button>
       </div>
 
@@ -147,12 +186,20 @@ export default function OrdemServico() {
               >
                 <TableCell>{item.n_os}</TableCell>
                 <TableCell>{item.nome_cliente}</TableCell>
-                <TableCell>{new Date(item.data_entrega).toLocaleDateString('pt-BR')}</TableCell>
-                <TableCell>R$ {item.valor_servico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</TableCell>
+                <TableCell>
+                  {item.data_entrega
+                    ? new Date(item.data_entrega).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+                    : 'N/A'}
+                </TableCell>
+                <TableCell>
+                  {item.valor_servico !== null && item.valor_servico !== undefined
+                    ? `R$ ${item.valor_servico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                    : 'R$ 0,00'}
+                </TableCell>
                 <TableCell>
                   <Badge variant={
                     item.status_producao === 'PRONTO' ? 'default' :
-                    item.status_producao === 'PRODUCAO' ? 'secondary' : 'outline'
+                      item.status_producao === 'PRODUCAO' ? 'secondary' : 'outline'
                   }>
                     {item.status_producao}
                   </Badge>
@@ -211,7 +258,8 @@ export default function OrdemServico() {
             </div>
             <div className="space-y-2">
               <Label>Status Produção</Label>
-              <Select>
+              <Select value={formData.status_producao ?? 'FILA'}
+                onValueChange={(value: StatusProducao) => setFormData({ ...formData, status_producao: value })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
@@ -224,7 +272,8 @@ export default function OrdemServico() {
             </div>
             <div className="space-y-2">
               <Label>Status Pagamento</Label>
-              <Select>
+              <Select value={formData.status_pagamento?.toString() ?? 'false'}
+                onValueChange={(value: string) => setFormData({ ...formData, status_pagamento: value === 'true' })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione" />
                 </SelectTrigger>
@@ -303,7 +352,7 @@ export default function OrdemServico() {
               <Label>Status Pagamento</Label>
               <Select
                 value={formData.status_pagamento?.toString()}
-                onValueChange={(value) => setFormData({ ...formData, status_pagamento: value === 'true' })}
+                onValueChange={(value: string) => setFormData({ ...formData, status_pagamento: value === 'true' })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione" />

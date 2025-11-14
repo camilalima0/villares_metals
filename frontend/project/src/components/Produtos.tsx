@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Search, Plus, Edit, Trash2, Filter } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
+import { useProdutos } from '../hooks/useProdutos'; // ✅ IMPORTAR HOOK
 
 interface ProdutoData {
   id_produto: number;
@@ -13,14 +14,10 @@ interface ProdutoData {
   peso_saida: number;
 }
 
-const initialData: ProdutoData[] = [
-  { id_produto: 1, nome_produto: 'Chapa de Aço Inox 304', peso_entrada: 150.5, peso_saida: 145.2 },
-  { id_produto: 2, nome_produto: 'Tubo de Cobre 3/4"', peso_entrada: 85.3, peso_saida: 82.1 },
-  { id_produto: 3, nome_produto: 'Barra de Alumínio 6061', peso_entrada: 200.0, peso_saida: 195.8 },
-];
-
 export default function Produtos() {
-  const [data, setData] = useState<ProdutoData[]>(initialData);
+  // ✅ USAR HOOK EM VEZ DE useState
+  const { produtos, loading, error, carregarProdutos, adicionarProduto, atualizarProduto, deletarProduto } = useProdutos();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
@@ -28,16 +25,27 @@ export default function Produtos() {
   const [editingItem, setEditingItem] = useState<ProdutoData | null>(null);
   const [formData, setFormData] = useState<Partial<ProdutoData>>({});
 
-  const filteredData = data.filter(item =>
+  // ✅ CARREGAR PRODUTOS AO INICIAR
+  useEffect(() => {
+    carregarProdutos();
+  }, []);
+
+  // ✅ FILTRAR DADOS REAIS
+  const filteredData = produtos.filter(item =>
     Object.values(item).some(value =>
       value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Tem certeza que deseja deletar este produto?')) {
-      setData(data.filter(item => item.id_produto !== id));
-      setSelectedRow(null);
+      const success = await deletarProduto(id);
+      if (success) {
+        setSelectedRow(null);
+        carregarProdutos(); // Recarrega a lista
+      } else {
+        alert('Erro ao deletar produto');
+      }
     }
   };
 
@@ -53,25 +61,57 @@ export default function Produtos() {
     setShowForm(true);
   };
 
-  const handleSave = () => {
-    if (editingItem) {
-      setData(data.map(item => item.id_produto === editingItem.id_produto ? { ...item, ...formData } as ProdutoData : item));
-    } else {
-      const newItem = {
-        ...formData,
-        id_produto: Math.max(...data.map(d => d.id_produto), 0) + 1,
-      } as ProdutoData;
-      setData([...data, newItem]);
+  const handleSave = async () => {
+    try {
+      if (editingItem) {
+        // ✅ EDITAR PRODUTO EXISTENTE
+        const success = await atualizarProduto(editingItem.id_produto, formData as ProdutoData);
+        if (success) {
+          carregarProdutos(); // Recarrega a lista
+        }
+      } else {
+        // ✅ ADICIONAR NOVO PRODUTO
+        const success = await adicionarProduto(formData as Omit<ProdutoData, 'id_produto'>);
+        if (success) {
+          carregarProdutos(); // Recarrega a lista
+        }
+      }
+      setShowForm(false);
+      setFormData({});
+    } catch (err) {
+      alert('Erro ao salvar produto');
     }
-    setShowForm(false);
-    setFormData({});
   };
+
+  // ✅ ADICIONAR FEEDBACK DE CARREGAMENTO E ERRO
+  if (loading) {
+    return (
+      <div className="p-8 flex justify-center items-center">
+        <p>Carregando produtos...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <div className="text-red-500 bg-red-100 p-4 rounded-lg">
+          Erro: {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-3xl mb-2">Produtos</h1>
         <p className="text-slate-600">Gerencie o catálogo de produtos da empresa</p>
+        
+        {/* ✅ MOSTRAR CONTADOR DE PRODUTOS REAIS */}
+        <p className="text-sm text-slate-500 mt-2">
+          {produtos.length} produto(s) cadastrado(s)
+        </p>
       </div>
 
       <div className="flex gap-3 mb-6">

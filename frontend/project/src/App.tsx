@@ -1,45 +1,68 @@
 import { useState, useEffect } from 'react';
 import LoginPage from './components/LoginPage';
 import Dashboard from './components/Dashboard';
+import { useAuth } from './hooks/useAuth';
 
-//useState: Estado do componente
-//O React usa esses hooks para gerenciar dados que podem mudar ao longo do tempo.
-
-//[isAuthenticated, ...]	
-// O estado que guarda se o usuário está logado (false por padrão) e a função para alterá-lo.
-//[currentUser, ...]	
-// O estado que guarda o username do usuário logado (inicialmente null) e a função para alterá-lo.
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<string | null>(null);
+  const { login, loading, error } = useAuth();
 
-  //useEffect(() => { ... }, [])	
-  // Este hook é executado apenas uma vez após a primeira renderização do componente 
-  // (indicado pelo [] vazio), agindo como um inicializador.
-  //localStorage.getItem('currentUser')	Tenta buscar o nome do usuário salvo no armazenamento 
-  // local do navegador (onde dados persistem entre recarregamentos).
-  //if (user) { ... }	Se um usuário for encontrado no localStorage, 
-  // a aplicação assume que o usuário já está logado, restaurando o estado (setIsAuthenticated(true)).
   useEffect(() => {
-    // Check if user is logged in
+    console.log('🔍 [App] Verificando usuário no localStorage...');
+
+    // --- CORREÇÃO DA LÓGICA DE INICIALIZAÇÃO ---
+    // O que REALMENTE importa é o token de autenticação (authBasic),
+    // não apenas o nome do usuário.
+    const authHash = localStorage.getItem('authBasic');
     const user = localStorage.getItem('currentUser');
-    if (user) {
+
+    if (authHash && user) {
+      console.log('✅ [App] Token de autenticação e usuário encontrados:', user);
       setIsAuthenticated(true);
       setCurrentUser(user);
+    } else {
+      console.log('ℹ️ [App] Nenhum token de autenticação ou usuário encontrado.');
+      // Limpa tudo por segurança, caso um esteja faltando
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('authBasic');
     }
+    // ------------------------------------------
   }, []);
 
-  const handleLogin = (username: string) => {
-    setIsAuthenticated(true);
-    setCurrentUser(username);
-    localStorage.setItem('currentUser', username);
+  const handleLogin = async (username: string, password: string): Promise<boolean> => {
+    console.log('🚀 [App] Iniciando processo de login...', { username });
+
+    const success = await login(username, password); // Supondo que useAuth.ts faz o fetch
+    if (success) {
+      console.log('🎉 [App] Login bem-sucedido! Atualizando estado...');
+      setIsAuthenticated(true);
+      setCurrentUser(username);
+      localStorage.setItem('currentUser', username);
+
+      // --- CORREÇÃO ADICIONADA AQUI ---
+      // O hook useOrdensServico DEPENDE deste item para autenticar
+      const credentials = `${username}:${password}`;
+      const encodedCredentials = btoa(credentials);
+      localStorage.setItem('authBasic', encodedCredentials);
+
+      return true;
+    } else {
+      console.log('❌ [App] Falha no login');
+      return false;
+    }
   };
 
   const handleLogout = () => {
+    console.log('👋 [App] Fazendo logout...');
     setIsAuthenticated(false);
     setCurrentUser(null);
     localStorage.removeItem('currentUser');
+    // CORREÇÃO: Limpar o hash de autenticação
+    localStorage.removeItem('authBasic');
   };
+
+  console.log('🔄 [App] Renderizando - isAuthenticated:', isAuthenticated, 'currentUser:', currentUser);
 
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} />;

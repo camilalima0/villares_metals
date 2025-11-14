@@ -1,25 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Search, Plus, Edit, Trash2, Filter } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
+import { useFuncionarios } from '../hooks/useFuncionarios';
 
+// ✅ INTERFACE CORRIGIDA - Campos da sua API
 interface FuncionarioData {
   id_funcionario: number;
-  username: string;
-  senha_hash: string;
+  userFuncionario: string;  // ✅ Campo correto da sua API
+  senhaFuncionario: string; // ✅ Campo correto da sua API
 }
 
-const initialData: FuncionarioData[] = [
-  { id_funcionario: 1, username: 'admin', senha_hash: '****' },
-  { id_funcionario: 2, username: 'joao.silva', senha_hash: '****' },
-  { id_funcionario: 3, username: 'maria.santos', senha_hash: '****' },
-];
-
 export default function Funcionarios() {
-  const [data, setData] = useState<FuncionarioData[]>(initialData);
+  const { funcionarios, loading, error, carregarFuncionarios, adicionarFuncionario, atualizarFuncionario, deletarFuncionario } = useFuncionarios();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
@@ -27,16 +24,25 @@ export default function Funcionarios() {
   const [editingItem, setEditingItem] = useState<FuncionarioData | null>(null);
   const [formData, setFormData] = useState<Partial<FuncionarioData>>({});
 
-  const filteredData = data.filter(item =>
+  useEffect(() => {
+    carregarFuncionarios();
+  }, []);
+
+  const filteredData = funcionarios.filter(item =>
     Object.values(item).some(value =>
       value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Tem certeza que deseja deletar este funcionário?')) {
-      setData(data.filter(item => item.id_funcionario !== id));
-      setSelectedRow(null);
+      const success = await deletarFuncionario(id);
+      if (success) {
+        setSelectedRow(null);
+        carregarFuncionarios();
+      } else {
+        alert('Erro ao deletar funcionário');
+      }
     }
   };
 
@@ -52,26 +58,52 @@ export default function Funcionarios() {
     setShowForm(true);
   };
 
-  const handleSave = () => {
-    if (editingItem) {
-      setData(data.map(item => item.id_funcionario === editingItem.id_funcionario ? { ...item, ...formData } as FuncionarioData : item));
-    } else {
-      const newItem = {
-        ...formData,
-        id_funcionario: Math.max(...data.map(d => d.id_funcionario), 0) + 1,
-        senha_hash: '****', // In real app, this would be hashed
-      } as FuncionarioData;
-      setData([...data, newItem]);
+  const handleSave = async () => {
+    try {
+      if (editingItem) {
+        const success = await atualizarFuncionario(editingItem.id_funcionario, formData as FuncionarioData);
+        if (success) {
+          carregarFuncionarios();
+        }
+      } else {
+        const success = await adicionarFuncionario(formData as Omit<FuncionarioData, 'id_funcionario'>);
+        if (success) {
+          carregarFuncionarios();
+        }
+      }
+      setShowForm(false);
+      setFormData({});
+    } catch (err) {
+      alert('Erro ao salvar funcionário');
     }
-    setShowForm(false);
-    setFormData({});
   };
+
+  if (loading) {
+    return (
+      <div className="p-8 flex justify-center items-center">
+        <p>Carregando funcionários...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <div className="text-red-500 bg-red-100 p-4 rounded-lg">
+          Erro: {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-3xl mb-2">Funcionários</h1>
         <p className="text-slate-600">Gerencie os funcionários e seus acessos ao sistema</p>
+        <p className="text-sm text-slate-500 mt-2">
+          {funcionarios.length} funcionário(s) cadastrado(s)
+        </p>
       </div>
 
       <div className="flex gap-3 mb-6">
@@ -112,8 +144,8 @@ export default function Funcionarios() {
                 onDoubleClick={() => setSelectedRow(item.id_funcionario)}
               >
                 <TableCell>{item.id_funcionario}</TableCell>
-                <TableCell>{item.username}</TableCell>
-                <TableCell>{item.senha_hash}</TableCell>
+                <TableCell>{item.userFuncionario}</TableCell>
+                <TableCell>{item.senhaFuncionario}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
                     <Button size="sm" variant="ghost" onClick={() => handleEdit(item)}>
@@ -164,8 +196,8 @@ export default function Funcionarios() {
               <Label>Username</Label>
               <Input
                 placeholder="Nome de usuário"
-                value={formData.username || ''}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                value={formData.userFuncionario || ''}
+                onChange={(e) => setFormData({ ...formData, userFuncionario: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -173,8 +205,8 @@ export default function Funcionarios() {
               <Input
                 type="password"
                 placeholder="Digite a senha"
-                value={formData.senha_hash || ''}
-                onChange={(e) => setFormData({ ...formData, senha_hash: e.target.value })}
+                value={formData.senhaFuncionario || ''}
+                onChange={(e) => setFormData({ ...formData, senhaFuncionario: e.target.value })}
               />
             </div>
           </div>

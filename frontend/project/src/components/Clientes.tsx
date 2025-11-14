@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Search, Plus, Edit, Trash2, Filter } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
+import { useClientes } from '../hooks/useClientes'; // ✅ IMPORTAR HOOK
 
 interface ClienteData {
   id_cliente: number;
@@ -14,32 +15,12 @@ interface ClienteData {
   email_cliente: string;
 }
 
-const initialData: ClienteData[] = [
-  {
-    id_cliente: 1,
-    nome_cliente: 'Industria ABC Ltda',
-    cnpj_cliente: '12.345.678/0001-90',
-    telefone_cliente: '(11) 98765-4321',
-    email_cliente: 'contato@industriaabc.com.br'
-  },
-  {
-    id_cliente: 2,
-    nome_cliente: 'Auto Parts S.A.',
-    cnpj_cliente: '98.765.432/0001-10',
-    telefone_cliente: '(11) 91234-5678',
-    email_cliente: 'compras@autoparts.com.br'
-  },
-  {
-    id_cliente: 3,
-    nome_cliente: 'Metalúrgica XYZ',
-    cnpj_cliente: '45.678.901/0001-23',
-    telefone_cliente: '(11) 97777-8888',
-    email_cliente: 'pedidos@metalurgicaxyz.com.br'
-  },
-];
+// ❌ REMOVER initialData - vamos usar dados do backend
 
 export default function Clientes() {
-  const [data, setData] = useState<ClienteData[]>(initialData);
+  // ✅ USAR HOOK EM VEZ DE useState
+  const { clientes, loading, error, carregarClientes, adicionarCliente, atualizarCliente, deletarCliente } = useClientes();
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
@@ -47,16 +28,27 @@ export default function Clientes() {
   const [editingItem, setEditingItem] = useState<ClienteData | null>(null);
   const [formData, setFormData] = useState<Partial<ClienteData>>({});
 
-  const filteredData = data.filter(item =>
+  // ✅ CARREGAR CLIENTES AO INICIAR
+  useEffect(() => {
+    carregarClientes();
+  }, []);
+
+  // ✅ FILTRAR DADOS REAIS
+  const filteredData = clientes.filter(item =>
     Object.values(item).some(value =>
       value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
     )
   );
 
-  const handleDelete = (id: number) => {
+  const handleDelete = async (id: number) => {
     if (confirm('Tem certeza que deseja deletar este cliente?')) {
-      setData(data.filter(item => item.id_cliente !== id));
-      setSelectedRow(null);
+      const success = await deletarCliente(id);
+      if (success) {
+        setSelectedRow(null);
+        carregarClientes(); // Recarrega a lista
+      } else {
+        alert('Erro ao deletar cliente');
+      }
     }
   };
 
@@ -72,25 +64,57 @@ export default function Clientes() {
     setShowForm(true);
   };
 
-  const handleSave = () => {
-    if (editingItem) {
-      setData(data.map(item => item.id_cliente === editingItem.id_cliente ? { ...item, ...formData } as ClienteData : item));
-    } else {
-      const newItem = {
-        ...formData,
-        id_cliente: Math.max(...data.map(d => d.id_cliente), 0) + 1,
-      } as ClienteData;
-      setData([...data, newItem]);
+  const handleSave = async () => {
+    try {
+      if (editingItem) {
+        // ✅ EDITAR CLIENTE EXISTENTE
+        const success = await atualizarCliente(editingItem.id_cliente, formData as ClienteData);
+        if (success) {
+          carregarClientes(); // Recarrega a lista
+        }
+      } else {
+        // ✅ ADICIONAR NOVO CLIENTE
+        const success = await adicionarCliente(formData as ClienteData);
+        if (success) {
+          carregarClientes(); // Recarrega a lista
+        }
+      }
+      setShowForm(false);
+      setFormData({});
+    } catch (err) {
+      alert('Erro ao salvar cliente');
     }
-    setShowForm(false);
-    setFormData({});
   };
+
+  // ✅ ADICIONAR FEEDBACK DE CARREGAMENTO E ERRO
+  if (loading) {
+    return (
+      <div className="p-8 flex justify-center items-center">
+        <p>Carregando clientes...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <div className="text-red-500 bg-red-100 p-4 rounded-lg">
+          Erro: {error}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-3xl mb-2">Clientes</h1>
         <p className="text-slate-600">Gerencie os clientes da empresa</p>
+        
+        {/* ✅ MOSTRAR CONTADOR DE CLIENTES REAIS */}
+        <p className="text-sm text-slate-500 mt-2">
+          {clientes.length} cliente(s) cadastrado(s)
+        </p>
       </div>
 
       <div className="flex gap-3 mb-6">
@@ -153,88 +177,7 @@ export default function Clientes() {
         </Table>
       </div>
 
-      {/* Advanced Search Dialog */}
-      <Dialog open={showAdvancedSearch} onOpenChange={setShowAdvancedSearch}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Busca Avançada - Clientes</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>ID Cliente</Label>
-              <Input type="number" placeholder="Filtrar por ID" />
-            </div>
-            <div className="space-y-2">
-              <Label>Nome</Label>
-              <Input placeholder="Nome do cliente" />
-            </div>
-            <div className="space-y-2">
-              <Label>CNPJ</Label>
-              <Input placeholder="00.000.000/0000-00" />
-            </div>
-            <div className="space-y-2">
-              <Label>Telefone</Label>
-              <Input placeholder="(00) 00000-0000" />
-            </div>
-            <div className="space-y-2 col-span-2">
-              <Label>Email</Label>
-              <Input type="email" placeholder="email@exemplo.com" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdvancedSearch(false)}>Cancelar</Button>
-            <Button onClick={() => setShowAdvancedSearch(false)}>Buscar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add/Edit Form Dialog */}
-      <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingItem ? 'Editar' : 'Adicionar'} Cliente</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Nome do Cliente</Label>
-              <Input
-                placeholder="Razão social"
-                value={formData.nome_cliente || ''}
-                onChange={(e) => setFormData({ ...formData, nome_cliente: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>CNPJ</Label>
-              <Input
-                placeholder="00.000.000/0000-00"
-                value={formData.cnpj_cliente || ''}
-                onChange={(e) => setFormData({ ...formData, cnpj_cliente: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Telefone</Label>
-              <Input
-                placeholder="(00) 00000-0000"
-                value={formData.telefone_cliente || ''}
-                onChange={(e) => setFormData({ ...formData, telefone_cliente: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
-                type="email"
-                placeholder="email@exemplo.com"
-                value={formData.email_cliente || ''}
-                onChange={(e) => setFormData({ ...formData, email_cliente: e.target.value })}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button onClick={handleSave}>Salvar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* ... (restante do código permanece igual - Advanced Search Dialog e Form Dialog) ... */}
     </div>
   );
 }

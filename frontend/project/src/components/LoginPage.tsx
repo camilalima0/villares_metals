@@ -5,10 +5,9 @@ import { Label } from './ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Factory } from 'lucide-react';
-import { verifyLogin, registerUser } from '../api/authService';
 
 interface LoginPageProps {
-  onLogin: (username: string) => void;
+  onLogin: (username: string, password: string) => Promise<boolean>;
 }
 
 export default function LoginPage({ onLogin }: LoginPageProps) {
@@ -16,65 +15,107 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
   const [loginPassword, setLoginPassword] = useState('');
   const [registerUsername, setRegisterUsername] = useState('');
   const [registerPassword, setRegisterPassword] = useState('');
-  const [error, setError] = useState<string | null>(null); // Novo estado para mensagens de erro
-  const [isLoading, setIsLoading] = useState<boolean>(false); // Novo estado para carregamento
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔐 [LoginPage] Iniciando login manual...', { username: loginUsername });
+    
     setError(null);
     setIsLoading(true);
+    
     if (loginUsername && loginPassword) {
-      const success = await verifyLogin({
-        userFuncionario: loginUsername,
-        senhaFuncionario: loginPassword
-      });
-      setIsLoading(false);
-
-      if (success) {
-        // Sucesso: Chama o onLogin do App.tsx, que persiste o usuário
-        onLogin(loginUsername);
-      } else {
-        // Falha: Spring Security devolveu 401 Unauthorized
-        setError('Credenciais inválidas. Usuário ou senha incorretos.');
+      try {
+        const success = await onLogin(loginUsername, loginPassword);
+        
+        if (success) {
+          console.log('✅ [LoginPage] Login manual bem-sucedido!');
+          setLoginUsername('');
+          setLoginPassword('');
+        } else {
+          console.log('❌ [LoginPage] Login manual falhou');
+          setError('Credenciais inválidas. Usuário ou senha incorretos.');
+        }
+      } catch (err) {
+        console.error('💥 [LoginPage] Erro no login manual:', err);
+        setError('Erro ao fazer login. Tente novamente.');
+      } finally {
+        setIsLoading(false);
       }
+    } else {
+      console.log('⚠️ [LoginPage] Campos de login vazios');
+      setIsLoading(false);
     }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('📝 [LoginPage] Iniciando cadastro...', { 
+      userFuncionario: registerUsername, 
+      senhaFuncionario: registerPassword 
+    });
+    
     setError(null);
     setIsLoading(true);
 
     if (registerUsername && registerPassword) {
-      // Lógica para verificar se o usuário já existe (opcional)
-      // const userExists = await checkIfUserExists(registerUsername);
-      // if (userExists) { setError('Usuário já cadastrado.'); setIsLoading(false); return; }
+      try {
+        console.log('📤 [LoginPage] Enviando requisição de cadastro...');
+        const registerResponse = await fetch('http://localhost:8080/funcionarios', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userFuncionario: registerUsername,
+            senhaFuncionario: registerPassword
+          }),
+        });
 
-      const success = await registerUser({
-        userFuncionario: registerUsername,
-        senhaFuncionario: registerPassword
-      });
+        console.log('📥 [LoginPage] Resposta do cadastro:', {
+          status: registerResponse.status,
+          ok: registerResponse.ok,
+          statusText: registerResponse.statusText
+        });
 
-      setIsLoading(false);
-
-      if (success) {
-        setError('✅ Cadastro realizado com sucesso! Use a aba Login.');
-        // Limpa o formulário de registro
-        setRegisterUsername('');
-        setRegisterPassword('');
-        // Se você quiser que o usuário vá diretamente para o dashboard após o cadastro:
-        onLogin(registerUsername);
-      } else {
-        // Este erro pode ser de rede ou se o backend rejeitar (ex: 409 Conflict)
-        setError('❌ Falha no cadastro. O usuário pode já existir ou houve um erro no servidor.');
+        if (registerResponse.ok) {
+          console.log('✅ [LoginPage] Cadastro bem-sucedido! Tentando login automático...');
+          
+          const loginSuccess = await onLogin(registerUsername, registerPassword);
+          
+          console.log('🔑 [LoginPage] Resultado do login automático:', loginSuccess);
+          
+          if (loginSuccess) {
+            console.log('🎉 [LoginPage] Login automático bem-sucedido! Redirecionando...');
+            setRegisterUsername('');
+            setRegisterPassword('');
+          } else {
+            console.log('⚠️ [LoginPage] Cadastro OK, mas login automático falhou');
+            setError('✅ Cadastro realizado! Faça login manualmente.');
+          }
+        } else {
+          console.log('❌ [LoginPage] Falha no cadastro - Status:', registerResponse.status);
+          if (registerResponse.status === 409) {
+            setError('❌ Usuário já existe. Tente outro nome de usuário.');
+          } else {
+            setError('❌ Falha no cadastro. Tente novamente.');
+          }
+        }
+      } catch (err) {
+        console.error('💥 [LoginPage] Erro de conexão:', err);
+        setError('Erro de conexão. Verifique se o servidor está rodando.');
+      } finally {
+        setIsLoading(false);
       }
+    } else {
+      console.log('⚠️ [LoginPage] Campos de cadastro vazios');
+      setIsLoading(false);
     }
-  }
-
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Navigation */}
       <nav className="border-b border-slate-700 bg-slate-900/50 backdrop-blur-sm">
         <div className="container mx-auto px-4 py-4 flex items-center gap-3">
           <Factory className="h-8 w-8 text-orange-500" />
@@ -82,10 +123,8 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
         </div>
       </nav>
 
-      {/* Hero Section */}
       <div className="container mx-auto px-4 py-16">
         <div className="grid md:grid-cols-2 gap-12 items-center">
-          {/* Left side - Hero content */}
           <div className="text-white space-y-6">
             <h1 className="text-5xl">
               Sistema de Gestão <span className="text-orange-500">Villares Metals</span>
@@ -119,7 +158,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
             </div>
           </div>
 
-          {/* Right side - Login/Register Form */}
           <div className="flex justify-center">
             <Tabs defaultValue="login" className="w-full max-w-md">
               <TabsList className="grid w-full grid-cols-2">
@@ -135,10 +173,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                       Digite suas credenciais para acessar
                     </CardDescription>
                   </CardHeader>
-                  {/* Adicione o bloco de erro/loading aqui */}
-                  {error && <p className="text-sm text-red-500 p-2">{error}</p>}
                   <CardContent>
-                    {/* Bloco de erro */}
                     {error && <p className="text-sm text-red-500 p-2 mb-4 bg-red-900/30 rounded-md">{error}</p>}
 
                     <form onSubmit={handleLogin} className="space-y-4">
@@ -150,6 +185,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                           value={loginUsername}
                           onChange={(e) => setLoginUsername(e.target.value)}
                           required
+                          disabled={isLoading}
                           className="bg-white border-slate-300 text-gray-900"
                         />
                       </div>
@@ -162,10 +198,15 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                           value={loginPassword}
                           onChange={(e) => setLoginPassword(e.target.value)}
                           required
+                          disabled={isLoading}
                           className="bg-white border-slate-300 text-gray-900"
                         />
                       </div>
-                      <Button type="submit" className="w-full" disabled={isLoading}>
+                      <Button 
+                        type="submit" 
+                        className="w-full" 
+                        disabled={isLoading || !loginUsername || !loginPassword}
+                      >
                         {isLoading ? 'Aguarde...' : 'Entrar'}
                       </Button>
                     </form>
@@ -181,9 +222,6 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                       Cadastre-se para acessar o sistema
                     </CardDescription>
                   </CardHeader>
-                  {/* Adicione o bloco de erro/loading aqui */}
-                  {error && <p className="text-sm text-red-500 p-2">{error}</p>}
-
                   <CardContent>
                     <form onSubmit={handleRegister} className="space-y-4">
                       <div className="space-y-2">
@@ -194,6 +232,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                           value={registerUsername}
                           onChange={(e) => setRegisterUsername(e.target.value)}
                           required
+                          disabled={isLoading}
                           className="bg-white border-slate-300 text-gray-900"
                         />
                       </div>
@@ -206,17 +245,21 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                           value={registerPassword}
                           onChange={(e) => setRegisterPassword(e.target.value)}
                           required
+                          disabled={isLoading}
                           className="bg-white border-slate-300 text-gray-900"
                         />
                       </div>
-                      <Button type="submit" className="w-full" disabled={isLoading}>
+                      <Button 
+                        type="submit" 
+                        className="w-full" 
+                        disabled={isLoading || !registerUsername || !registerPassword}
+                      >
                         {isLoading ? 'Aguarde...' : 'Cadastrar'}
                       </Button>
                     </form>
                   </CardContent>
                 </Card>
               </TabsContent>
-
             </Tabs>
           </div>
         </div>

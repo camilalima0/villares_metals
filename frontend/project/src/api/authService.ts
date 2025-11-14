@@ -2,7 +2,7 @@
 
 // Define a URL base para as requisições, apontando para o seu backend Spring Boot.
 const API_BASE_URL = 'http://localhost:8080/funcionarios'; 
-const API_LOGIN_TEST_URL = 'http://localhost:8080/user';
+const API_LOGIN_TEST_URL = 'http://localhost:8080/funcionarios';
 
 // -----------------------------------------------------------------------------
 // 1. Definição de Tipos (Interfaces)
@@ -25,6 +25,9 @@ interface FuncionarioData {
  * @returns Promise<boolean>: true se o servidor retornar sucesso (200/201), false caso contrário.
  */
 export const registerUser = async (data: FuncionarioData): Promise<boolean> => {
+
+    console.log('[registerUser] Enviando para:', API_BASE_URL);
+    console.log('[registerUser] Dados (Body):', JSON.stringify(data));
     // Bloco try/catch é crucial para lidar com erros de rede ou de resposta do servidor.
     try {
         // Usa a API nativa fetch para iniciar uma requisição HTTP.
@@ -36,6 +39,8 @@ export const registerUser = async (data: FuncionarioData): Promise<boolean> => {
             // Converte o objeto JavaScript 'data' em uma string JSON para o corpo da requisição.
             body: JSON.stringify(data), 
         });
+
+        console.log('[registerUser] Resposta do Servidor (Status):', response.status);
 
         // Verifica o status da resposta HTTP. response.ok é true para status 200-299.
         if (response.ok) {
