@@ -1,14 +1,15 @@
 // hooks/useClientes.ts - VERSÃO COMPLETA
 import { useState } from 'react';
+import { getAuthHeader } from './utils.ts';
 
 const API_BASE_URL = 'http://localhost:8080/clientes';
 
 interface ClienteData {
-  id_cliente: number;
-  nome_cliente: string;
-  cnpj_cliente: string;
-  telefone_cliente: string;
-  email_cliente: string;
+  idCliente: number;
+  nomeCliente: string;
+  cnpjCliente: string;
+  telefoneCliente: string;
+  emailCliente: string;
 }
 
 export const useClientes = () => {
@@ -20,7 +21,9 @@ export const useClientes = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(API_BASE_URL);
+      const response = await fetch(API_BASE_URL, {
+        headers: getAuthHeader(),
+      });
       if (response.ok) {
         const dados = await response.json();
         setClientes(dados);
@@ -34,13 +37,11 @@ export const useClientes = () => {
     }
   };
 
-  const adicionarCliente = async (cliente: Omit<ClienteData, 'id_cliente'>): Promise<boolean> => {
+  const adicionarCliente = async (cliente: Omit<ClienteData, 'idCliente'>): Promise<boolean> => {
     try {
       const response = await fetch(API_BASE_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeader(),
         body: JSON.stringify(cliente),
       });
       
@@ -55,9 +56,7 @@ export const useClientes = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeader(),
         body: JSON.stringify(cliente),
       });
       
@@ -72,6 +71,7 @@ export const useClientes = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeader(),
       });
       
       return response.ok;

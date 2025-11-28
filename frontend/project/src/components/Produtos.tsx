@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, MouseEvent } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Search, Plus, Edit, Trash2, Filter } from 'lucide-react';
@@ -8,16 +8,16 @@ import { Label } from './ui/label';
 import { useProdutos } from '../hooks/useProdutos'; // ✅ IMPORTAR HOOK
 
 interface ProdutoData {
-  id_produto: number;
-  nome_produto: string;
-  peso_entrada: number;
-  peso_saida: number;
+  idProduto: number;
+  nomeProduto: string;
+  pesoEntrada: number;
+  pesoSaida: number;
 }
 
 export default function Produtos() {
   // ✅ USAR HOOK EM VEZ DE useState
   const { produtos, loading, error, carregarProdutos, adicionarProduto, atualizarProduto, deletarProduto } = useProdutos();
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
@@ -31,14 +31,16 @@ export default function Produtos() {
   }, []);
 
   // ✅ FILTRAR DADOS REAIS
-  const filteredData = produtos.filter(item =>
-    Object.values(item).some(value =>
+  const filteredData = produtos.filter((item: any) => {
+    // Cast para garantir tipagem
+    const p = item as ProdutoData;
+    return Object.values(p).some(value =>
       value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+    );
+  });
 
   const handleDelete = async (id: number) => {
-    if (confirm('Tem certeza que deseja deletar este produto?')) {
+    if (window.confirm('Tem certeza que deseja deletar este produto?')) {
       const success = await deletarProduto(id);
       if (success) {
         setSelectedRow(null);
@@ -65,13 +67,13 @@ export default function Produtos() {
     try {
       if (editingItem) {
         // ✅ EDITAR PRODUTO EXISTENTE
-        const success = await atualizarProduto(editingItem.id_produto, formData as ProdutoData);
+        const success = await atualizarProduto(editingItem.idProduto, formData as ProdutoData);
         if (success) {
           carregarProdutos(); // Recarrega a lista
         }
       } else {
         // ✅ ADICIONAR NOVO PRODUTO
-        const success = await adicionarProduto(formData as Omit<ProdutoData, 'id_produto'>);
+        const success = await adicionarProduto(formData as Omit<ProdutoData, 'idProduto'>);
         if (success) {
           carregarProdutos(); // Recarrega a lista
         }
@@ -95,8 +97,10 @@ export default function Produtos() {
   if (error) {
     return (
       <div className="p-8">
-        <div className="text-red-500 bg-red-100 p-4 rounded-lg">
-          Erro: {error}
+        <div className="text-red-600 bg-red-100 p-4 rounded-lg border border-red-300">
+          <h3 className="font-bold text-lg">Erro ao Carregar Dados</h3>
+          <p className="text-sm mt-2">Detalhe: {error}</p>
+          <Button onClick={carregarProdutos} className="mt-4">Tentar Novamente</Button>
         </div>
       </div>
     );
@@ -107,7 +111,7 @@ export default function Produtos() {
       <div className="mb-6">
         <h1 className="text-3xl mb-2">Produtos</h1>
         <p className="text-slate-600">Gerencie o catálogo de produtos da empresa</p>
-        
+
         {/* ✅ MOSTRAR CONTADOR DE PRODUTOS REAIS */}
         <p className="text-sm text-slate-500 mt-2">
           {produtos.length} produto(s) cadastrado(s)
@@ -137,7 +141,7 @@ export default function Produtos() {
       <div className="border rounded-lg bg-white">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow key="header-row">
               <TableHead>ID</TableHead>
               <TableHead>Nome do Produto</TableHead>
               <TableHead>Peso Entrada (kg)</TableHead>
@@ -147,25 +151,64 @@ export default function Produtos() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredData.map((item) => {
-              const perda = ((item.peso_entrada - item.peso_saida) / item.peso_entrada * 100).toFixed(2);
+            {filteredData.length === 0 && (
+              <TableRow key="empty-row">
+                <TableCell colSpan={6} className="text-center text-slate-500 py-10">
+                  Nenhum produto encontrado.
+                </TableCell>
+              </TableRow>
+            )}
+            {filteredData.map((item: any) => {
+              const p = item as ProdutoData;
+              // ✅ CORREÇÃO: Verificações de segurança para evitar crash com null/undefined
+              // ✅ CORREÇÃO: Converter para Number antes de usar.
+                            // O backend está retornando strings ("5.00"), o que causa erro no .toFixed()
+                            const pEntrada = Number(p.pesoEntrada) || 0;
+                            const pSaida = Number(p.pesoSaida) || 0;
+
+              // Cálculo de perda seguro (evita divisão por zero)
+              const perda = pEntrada > 0
+                ? ((pEntrada - pSaida) / pEntrada * 100).toFixed(2)
+                : "0.00";
+
               return (
                 <TableRow
-                  key={item.id_produto}
-                  className={selectedRow === item.id_produto ? 'bg-slate-50' : ''}
-                  onDoubleClick={() => setSelectedRow(item.id_produto)}
+                  key={p.idProduto}
+                  className={selectedRow === p.idProduto ? 'bg-slate-100' : 'hover:bg-slate-50'}
+                  onClick={() => setSelectedRow(p.idProduto)}
                 >
-                  <TableCell>{item.id_produto}</TableCell>
-                  <TableCell>{item.nome_produto}</TableCell>
-                  <TableCell>{item.peso_entrada.toFixed(2)}</TableCell>
-                  <TableCell>{item.peso_saida.toFixed(2)}</TableCell>
-                  <TableCell>{perda}%</TableCell>
+                  <TableCell className="font-medium">{p.idProduto}</TableCell>
+                  <TableCell>{p.nomeProduto}</TableCell>
+
+                  {/* ✅ CORREÇÃO: Formatação segura */}
+                  <TableCell>
+                    {pEntrada.toFixed(2)}
+                  </TableCell>
+
+                  <TableCell>
+                    {pSaida.toFixed(2)}
+                  </TableCell>
+
+                  <TableCell>
+                    <span className={parseFloat(perda) > 10 ? "text-red-600 font-bold" : "text-green-600"}>
+                      {perda}%
+                    </span>
+                  </TableCell>
+
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="ghost" onClick={() => handleEdit(item)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e: MouseEvent) => { e.stopPropagation(); handleEdit(p); }}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id_produto)}>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e: MouseEvent) => { e.stopPropagation(); handleDelete(p.idProduto); }}
+                      >
                         <Trash2 className="h-4 w-4 text-red-500" />
                       </Button>
                     </div>
@@ -227,29 +270,31 @@ export default function Produtos() {
               <Label>Nome do Produto</Label>
               <Input
                 placeholder="Nome do produto"
-                value={formData.nome_produto || ''}
-                onChange={(e) => setFormData({ ...formData, nome_produto: e.target.value })}
+                value={formData.nomeProduto || ''}
+                onChange={(e) => setFormData({ ...formData, nomeProduto: e.target.value })}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Peso de Entrada (kg)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={formData.peso_entrada || ''}
-                onChange={(e) => setFormData({ ...formData, peso_entrada: parseFloat(e.target.value) })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Peso de Saída (kg)</Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={formData.peso_saida || ''}
-                onChange={(e) => setFormData({ ...formData, peso_saida: parseFloat(e.target.value) })}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Peso de Entrada (kg)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={formData.pesoEntrada || ''}
+                  onChange={(e) => setFormData({ ...formData, pesoEntrada: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Peso de Saída (kg)</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={formData.pesoSaida || ''}
+                  onChange={(e) => setFormData({ ...formData, pesoSaida: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>

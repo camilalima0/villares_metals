@@ -1,32 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, MouseEvent } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { Search, Plus, Edit, Trash2, Filter } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Filter } from 'lucide-react';
+import { useClientes } from '../hooks/useClientes';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './ui/dialog';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
-import { useOrdensServico } from '../hooks/useOrdensServico'; // ✅ IMPORTAR HOOK
+import { useOrdensServico, SearchFilters } from '../hooks/useOrdensServico';
+import { ClienteSelect } from './ClienteSelect';
+// Importa o componente de seleção de produtos e a interface ItemPedido
+import { ProdutosOSSelect, ItemPedido } from './ProdutosOSSelect';
 
 type StatusProducao = 'FILA' | 'PRODUCAO' | 'PRONTO';
+
+// Interface para o Cliente (CamelCase - igual ao JSON)
+interface Cliente {
+  idCliente: number;
+  nomeCliente: string;
+  cnpjCliente: string;
+  telefoneCliente: string;
+  emailCliente: string;
+}
+
+// Interface para a OS (CamelCase - igual ao JSON)
 interface OrdemServicoData {
-  n_os: number;
-  data_entrega: string;
-  data_aprovacao: string;
-  status_pagamento: boolean;
-  status_producao: StatusProducao;
-  valor_servico: number;
-  descricao_pedido: string;
-  id_cliente: number;
-  nome_cliente: string;
+  idOS: number;
+  dataEntrega: string;
+  dataAprovacao: string;
+  statusPagamento: boolean;
+  statusProducao: StatusProducao;
+  valorServico: number;
+  descricao: string;
+  cliente: Cliente; // Objeto cliente aninhado
+  // Adiciona a lista de itens do pedido na interface da OS
+  itensDoPedido: ItemPedido[];
 }
 
 export default function OrdemServico() {
-  // ✅ USAR HOOK EM VEZ DE useState
-  const { ordens, loading, error, carregarOrdens, adicionarOrdem, atualizarOrdem, deletarOrdem } = useOrdensServico();
-
+  // O hook deve retornar os dados. Se o hook ainda usar snake_case internamente,
+  // o cast "as OrdemServicoData" ajuda o TypeScript a entender o formato novo.
+  const { ordens, loading, error, carregarOrdens, buscarOrdensAvancada, adicionarOrdem, atualizarOrdem, deletarOrdem } = useOrdensServico();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
@@ -34,37 +50,72 @@ export default function OrdemServico() {
   const [editingItem, setEditingItem] = useState<OrdemServicoData | null>(null);
   const [formData, setFormData] = useState<Partial<OrdemServicoData>>({});
 
-  // ✅ CARREGAR ORDENS AO INICIAR
+  // ✅ NOVO ESTADO: Armazena os valores do formulário de Busca Avançada
+  // Inicializamos com valores vazios ou padrões
+  const [filtros, setFiltros] = useState<SearchFilters>({
+    dataEntregaInicio: '',
+    dataEntregaFim: '',
+    valorMinimo: 0,
+    valorMaximo: 0,
+    statusProducao: 'TODOS',
+    statusPagamento: 'TODOS',
+    descricao: ''
+  });
+
+  // Carrega a lista inicial ao montar o componente
   useEffect(() => {
     carregarOrdens();
   }, []);
 
-  // ✅ FILTRAR DADOS REAIS
-  const filteredData = ordens.filter(item =>
-    Object.values(item).some(value =>
-      value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+  // Filtro atualizado para acessar as propriedades em CamelCase
+  const filteredData = ordens.filter((item: any) => {
+    const os = item as OrdemServicoData;
+    const searchLower = searchTerm.toLowerCase();
+    const clienteMatch = os.cliente?.nomeCliente?.toLowerCase().includes(searchLower);
+    // Usa idOS (ou fallback para n_os se o hook for antigo)
+    const idMatch = os.idOS?.toString().includes(searchLower);
+    const statusMatch = os.statusProducao?.toLowerCase().includes(searchLower);
 
-  const handleDelete = async (n_os: number) => {
+    return clienteMatch || idMatch || statusMatch;
+  });
+
+  // ✅ FUNÇÃO DE BUSCA AVANÇADA
+  // Chamada quando o usuário clica em "Aplicar Filtros" no modal
+  const handleAdvancedSearch = async () => {
+    // Chama a função do hook que faz a requisição GET com os parâmetros na URL
+    await buscarOrdensAvancada(filtros);
+    setShowAdvancedSearch(false); // Fecha o modal após buscar
+  };
+
+  // Helper para atualizar o estado dos filtros de busca
+  const handleFilterChange = (field: keyof SearchFilters, value: any) => {
+    setFiltros(prev => ({ ...prev, [field]: value }));
+  };
+
+  // --- Funções de CRUD (Adicionar, Editar, Deletar) ---
+
+  const handleDelete = async (id: number) => {
     if (window.confirm('Tem certeza que deseja deletar esta ordem de serviço?')) {
-      const success = await deletarOrdem(n_os);
+      const success = await deletarOrdem(id);
       if (success) {
         setSelectedRow(null);
-        carregarOrdens(); // Recarrega a lista
+        carregarOrdens();
       } else {
         alert('Erro ao deletar ordem de serviço');
       }
     }
   };
 
-  const handleEdit = (item: OrdemServicoData) => {
-    setEditingItem(item);
-    // CORREÇÃO: Formata a data (que vem como string ISO) para o formato YYYY-MM-DD 
-    // que o <input type="date"> exige.
+  const handleEdit = (item: any) => {
+    const os = item as OrdemServicoData;
+    setEditingItem(os);
+    // Formata data para YYYY-MM-DD
     const formattedItem = {
-      ...item,
-      data_entrega: item.data_entrega ? new Date(item.data_entrega).toISOString().split('T')[0] : '',
+      ...os,
+      dataEntrega: os.dataEntrega ? new Date(os.dataEntrega).toISOString().split('T')[0] : '',
+
+      // Garante que itensDoPedido seja carregado ou inicializado como vazio
+      itensDoPedido: os.itensDoPedido || []
     };
     setFormData(formattedItem);
     setShowForm(true);
@@ -72,36 +123,84 @@ export default function OrdemServico() {
 
   const handleAdd = () => {
     setEditingItem(null);
-    // Define valores padrão para evitar 'undefined' nos inputs controlados
     setFormData({
-      nome_cliente: '',
-      data_entrega: '',
-      valor_servico: 0,
-      status_producao: 'FILA',
-      status_pagamento: false,
-      descricao_pedido: ''
+      cliente: undefined,
+      dataEntrega: '',
+      valorServico: 0,
+      statusProducao: 'FILA',
+      statusPagamento: false,
+      descricao: '',
+      // Inicializa a lista de produtos vazia
+      itensDoPedido: []
     });
     setShowForm(true);
   };
 
+  // Recebe o cliente do componente ClienteSelect e atualiza o formData
+  const handleClienteSelect = (clienteSelecionado: any) => {
+    if (clienteSelecionado) {
+      setFormData(prev => ({
+        ...prev,
+        cliente: clienteSelecionado
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, cliente: undefined }));
+    }
+  };
+
+  // Handler para atualizar a lista de produtos no formulário
+  const handleProdutosChange = (novosItens: ItemPedido[]) => {
+    setFormData(prev => ({
+      ...prev,
+      itensDoPedido: novosItens
+    }));
+  };
+
+  const handleNavigateToClientes = () => {
+    alert("Por favor, vá até a aba 'Clientes' para cadastrar um novo cliente.");
+    setShowForm(false);
+  };
+
+  // ✅ Esta é a função que o ProdutosOSSelect vai chamar
+  const handleNavigateToProdutos = () => {
+    alert("Por favor, vá até a aba 'Produtos' para cadastrar um novo item no catálogo.");
+    // Se estivesse usando react-router: navigate('/produtos');
+    setShowForm(false);
+  };
+
+  const handleFormChange = (field: keyof OrdemServicoData, value: any) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+
   const handleSave = async () => {
     try {
-      // Validação simples
-      if (!formData.nome_cliente || !formData.data_entrega || !formData.valor_servico) {
+      if (!formData.cliente?.idCliente || !formData.dataEntrega || (formData.valorServico === undefined)) {
         alert("Cliente, Data de Entrega e Valor são obrigatórios.");
         return;
       }
+
+      const dadosParaSalvar = { ...formData } as OrdemServicoData;
+
       if (editingItem) {
-        // ✅ EDITAR ORDEM EXISTENTE
-        const success = await atualizarOrdem(editingItem.n_os, formData as OrdemServicoData);
+        // Garante o uso do ID correto
+        const id = editingItem.idOS;
+        const success = await atualizarOrdem(id, dadosParaSalvar);
         if (success) {
-          carregarOrdens(); // Recarrega a lista
+          carregarOrdens();
         }
       } else {
-        // ✅ ADICIONAR NOVA ORDEM
-        const success = await adicionarOrdem(formData as Omit<OrdemServicoData, 'n_os'>);
+        // Remove ID para criação
+        const { idOS, ...dadosSemId } = dadosParaSalvar;
+        // Remove n_os se existir no objeto por compatibilidade
+        const { n_os, ...dadosLimpos } = dadosSemId as any;
+
+        const success = await adicionarOrdem(dadosLimpos);
         if (success) {
-          carregarOrdens(); // Recarrega a lista
+          carregarOrdens();
         }
       }
       setShowForm(false);
@@ -111,11 +210,10 @@ export default function OrdemServico() {
     }
   };
 
-  // ✅ ADICIONAR FEEDBACK DE CARREGAMENTO E ERRO
   if (loading) {
     return (
-      <div className="p-8 flex justify-center items-center">
-        <p>Carregando ordens de serviço...</p>
+      <div className="p-8 flex justify-center items-center h-[calc(100vh-100px)]">
+        <p className="text-xl animate-pulse">Carregando ordens de serviço...</p>
       </div>
     );
   }
@@ -123,8 +221,11 @@ export default function OrdemServico() {
   if (error) {
     return (
       <div className="p-8">
-        <div className="text-red-500 bg-red-100 p-4 rounded-lg">
-          Erro: {error}
+        <div className="text-red-600 bg-red-100 p-4 rounded-lg border border-red-300">
+          <h3 className="font-bold text-lg">Erro ao Carregar Dados</h3>
+          <p>Não foi possível carregar as ordens de serviço.</p>
+          <p className="text-sm mt-2">Detalhe: {error}</p>
+          <Button onClick={carregarOrdens} className="mt-4">Tentar Novamente</Button>
         </div>
       </div>
     );
@@ -133,18 +234,15 @@ export default function OrdemServico() {
   return (
     <div className="p-8">
       <div className="mb-6">
-        <h1 className="text-3xl mb-2">Ordens de Serviço</h1>
+        <h1 className="text-3xl font-bold mb-2">Ordens de Serviço</h1>
         <p className="text-slate-600">Gerencie todas as ordens de serviço da empresa</p>
-
-        {/* ✅ MOSTRAR CONTADOR DE ORDENS REAIS */}
         <p className="text-sm text-slate-500 mt-2">
           {ordens.length} ordem(ns) de serviço cadastrada(s)
         </p>
       </div>
 
-      {/* Search and Actions */}
-      <div className="flex gap-3 mb-6">
-        <div className="flex-1 relative">
+      <div className="flex flex-wrap gap-3 mb-6">
+        <div className="flex-1 relative min-w-[250px]">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
           <Input
             placeholder="Buscar ordens de serviço..."
@@ -159,18 +257,18 @@ export default function OrdemServico() {
         </Button>
         <Button onClick={handleAdd}>
           <Plus className="h-4 w-4 mr-2" />
-          Adicionar Nova
+          Adicionar Novo
         </Button>
       </div>
 
-      {/* Table */}
-      <div className="border rounded-lg bg-white">
+      <div className="border rounded-lg bg-white overflow-x-auto">
         <Table>
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="bg-slate-50">
+            <TableRow key="header-row">
               <TableHead>Nº OS</TableHead>
               <TableHead>Cliente</TableHead>
               <TableHead>Data Entrega</TableHead>
+              <TableHead>Data Aprovação</TableHead>
               <TableHead>Valor</TableHead>
               <TableHead>Status Produção</TableHead>
               <TableHead>Pagamento</TableHead>
@@ -178,201 +276,257 @@ export default function OrdemServico() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredData.map((item) => (
-              <TableRow
-                key={item.n_os}
-                className={selectedRow === item.n_os ? 'bg-slate-50' : ''}
-                onDoubleClick={() => setSelectedRow(item.n_os)}
-              >
-                <TableCell>{item.n_os}</TableCell>
-                <TableCell>{item.nome_cliente}</TableCell>
-                <TableCell>
-                  {item.data_entrega
-                    ? new Date(item.data_entrega).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
-                    : 'N/A'}
-                </TableCell>
-                <TableCell>
-                  {item.valor_servico !== null && item.valor_servico !== undefined
-                    ? `R$ ${item.valor_servico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                    : 'R$ 0,00'}
-                </TableCell>
-                <TableCell>
-                  <Badge variant={
-                    item.status_producao === 'PRONTO' ? 'default' :
-                      item.status_producao === 'PRODUCAO' ? 'secondary' : 'outline'
-                  }>
-                    {item.status_producao}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={item.status_pagamento ? 'default' : 'destructive'}>
-                    {item.status_pagamento ? 'Pago' : 'Pendente'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleEdit(item)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(item.n_os)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                    </Button>
-                  </div>
+            {filteredData.length === 0 && (
+              <TableRow key="empty-row">
+                <TableCell colSpan={8} className="text-center text-slate-500 py-10">
+                  Nenhuma ordem de serviço encontrada.
                 </TableCell>
               </TableRow>
-            ))}
+            )}
+            {filteredData.map((item: any) => {
+              const os = item as OrdemServicoData;
+              // Fallback para idOS ou n_os
+              const id = os.idOS || (os as any).n_os;
+              return (
+                <TableRow
+                  key={id}
+                  className={selectedRow === id ? 'bg-slate-100' : 'hover:bg-slate-50'}
+                  onClick={() => setSelectedRow(id)}
+                >
+                  <TableCell className="font-medium">{id}</TableCell>
+                  <TableCell>{os.cliente?.nomeCliente || 'N/A'}</TableCell>
+
+                  <TableCell>
+                    {os.dataEntrega
+                      ? new Date(os.dataEntrega).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+                      : 'N/A'}
+                  </TableCell>
+
+                  <TableCell>
+                    {os.dataAprovacao
+                      ? new Date(os.dataAprovacao).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
+                      : 'Pendente'}
+                  </TableCell>
+
+                  <TableCell>
+                    {os.valorServico !== null && os.valorServico !== undefined
+                      ? `R$ ${os.valorServico.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                      : 'R$ 0,00'}
+                  </TableCell>
+
+                  <TableCell>
+                    <Badge variant={
+                      os.statusProducao === 'PRONTO' ? 'default' :
+                        os.statusProducao === 'PRODUCAO' ? 'secondary' : 'outline'
+                    } className="capitalize">
+                      {os.statusProducao?.toLowerCase() || 'N/A'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={os.statusPagamento ? 'default' : 'destructive'}>
+                      {os.statusPagamento ? 'Pago' : 'Pendente'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e: MouseEvent) => { e.stopPropagation(); handleEdit(os); }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={(e: MouseEvent) => { e.stopPropagation(); handleDelete(id); }}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-500" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
           </TableBody>
         </Table>
       </div>
 
-      {/* Advanced Search Dialog */}
       <Dialog open={showAdvancedSearch} onOpenChange={setShowAdvancedSearch}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[70vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>Busca Avançada - Ordens de Serviço</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Número OS</Label>
-              <Input type="number" placeholder="Filtrar por número" />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+            {/* 1. Filtro por Descrição */}
+            <div className="col-span-1 md:col-span-2 space-y-2">
+              <Label>Descrição</Label>
+              <Input
+                placeholder="Palavras-chave na descrição"
+                value={filtros.descricao || ''}
+                onChange={(e) => handleFilterChange('descricao', e.target.value)}
+              />
             </div>
-            <div className="space-y-2">
-              <Label>Cliente</Label>
-              <Input placeholder="Nome do cliente" />
-            </div>
+
+            {/* 2. Filtro por Data de Entrega */}
             <div className="space-y-2">
               <Label>Data Entrega (De)</Label>
-              <Input type="date" />
+              <Input type="date"
+                value={filtros.dataEntregaInicio || ''}
+                onChange={(e) => handleFilterChange('dataEntregaInicio', e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label>Data Entrega (Até)</Label>
-              <Input type="date" />
+              <Input type="date"
+                value={filtros.dataEntregaFim || ''}
+                onChange={(e) => handleFilterChange('dataEntregaFim', e.target.value)}
+              />
+            </div>
+
+            {/* 3. Filtro por Valor */}
+            <div className="space-y-2">
+              <Label>Valor Mínimo (R$)</Label>
+              <Input type="number" placeholder="0,00"
+                value={filtros.valorMinimo || ''}
+                onChange={(e) => handleFilterChange('valorMinimo', parseFloat(e.target.value))}
+              />
             </div>
             <div className="space-y-2">
+              <Label>Valor Máximo (R$)</Label>
+              <Input type="number" placeholder="0,00"
+                value={filtros.valorMaximo || ''}
+                onChange={(e) => handleFilterChange('valorMaximo', parseFloat(e.target.value))}
+              />
+            </div>
+
+            {/* 4. Filtro por Status Produção */}
+            <div className="space-y-2">
               <Label>Status Produção</Label>
-              <Select value={formData.status_producao ?? 'FILA'}
-                onValueChange={(value: StatusProducao) => setFormData({ ...formData, status_producao: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
+              <Select
+                value={filtros.statusProducao || 'TODOS'}
+                onValueChange={(val: any) => handleFilterChange('statusProducao', val)}
+              >
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="TODOS">Todos</SelectItem>
                   <SelectItem value="FILA">Fila</SelectItem>
                   <SelectItem value="PRODUCAO">Produção</SelectItem>
                   <SelectItem value="PRONTO">Pronto</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* 5. Filtro por Status Pagamento */}
             <div className="space-y-2">
               <Label>Status Pagamento</Label>
-              <Select value={formData.status_pagamento?.toString() ?? 'false'}
-                onValueChange={(value: string) => setFormData({ ...formData, status_pagamento: value === 'true' })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
+              <Select
+                value={filtros.statusPagamento || 'TODOS'}
+                onValueChange={(val: any) => handleFilterChange('statusPagamento', val)}
+              >
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="TODOS">Todos</SelectItem>
                   <SelectItem value="true">Pago</SelectItem>
                   <SelectItem value="false">Pendente</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Valor Mínimo</Label>
-              <Input type="number" placeholder="R$ 0,00" />
-            </div>
-            <div className="space-y-2">
-              <Label>Valor Máximo</Label>
-              <Input type="number" placeholder="R$ 0,00" />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdvancedSearch(false)}>Cancelar</Button>
-            <Button onClick={() => setShowAdvancedSearch(false)}>Buscar</Button>
+            <Button onClick={handleAdvancedSearch}>Aplicar Filtros</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Add/Edit Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">
+          <DialogHeader className="p-6 pb-4 border-b bg-white z-10">
             <DialogTitle>{editingItem ? 'Editar' : 'Adicionar'} Ordem de Serviço</DialogTitle>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Cliente</Label>
-              <Input
-                placeholder="Nome do cliente"
-                value={formData.nome_cliente || ''}
-                onChange={(e) => setFormData({ ...formData, nome_cliente: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Data de Entrega</Label>
-              <Input
-                type="date"
-                value={formData.data_entrega || ''}
-                onChange={(e) => setFormData({ ...formData, data_entrega: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Valor do Serviço</Label>
-              <Input
-                type="number"
-                step="0.01"
-                placeholder="0.00"
-                value={formData.valor_servico || ''}
-                onChange={(e) => setFormData({ ...formData, valor_servico: parseFloat(e.target.value) })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Status Produção</Label>
-              <Select
-                value={formData.status_producao}
-                onValueChange={(value: any) => setFormData({ ...formData, status_producao: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="FILA">Fila</SelectItem>
-                  <SelectItem value="PRODUCAO">Produção</SelectItem>
-                  <SelectItem value="PRONTO">Pronto</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Status Pagamento</Label>
-              <Select
-                value={formData.status_pagamento?.toString()}
-                onValueChange={(value: string) => setFormData({ ...formData, status_pagamento: value === 'true' })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Pago</SelectItem>
-                  <SelectItem value="false">Pendente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 col-span-2">
-              <Label>Descrição do Pedido</Label>
-              <Textarea
-                placeholder="Detalhes do pedido..."
-                value={formData.descricao_pedido || ''}
-                onChange={(e) => setFormData({ ...formData, descricao_pedido: e.target.value })}
-              />
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Cliente</Label>
+                {/* Componente de Seleção Integrado */}
+                <ClienteSelect
+                  value={formData.cliente}
+                  onChange={handleClienteSelect}
+                  onAddNew={handleNavigateToClientes}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Data de Entrega</Label>
+                <Input
+                  type="date"
+                  value={formData.dataEntrega || ''}
+                  onChange={(e) => handleFormChange('dataEntrega', e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Valor do Serviço</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={formData.valorServico || ''}
+                  onChange={(e) => handleFormChange('valorServico', parseFloat(e.target.value) || 0)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status Produção</Label>
+                <Select
+                  value={formData.statusProducao ?? 'FILA'}
+                  onValueChange={(value: StatusProducao) => handleFormChange('statusProducao', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FILA">Fila</SelectItem>
+                    <SelectItem value="PRODUCAO">Produção</SelectItem>
+                    <SelectItem value="PRONTO">Pronto</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Status Pagamento</Label>
+                <Select
+                  value={formData.statusPagamento?.toString() ?? 'false'}
+                  onValueChange={(value: string) => handleFormChange('statusPagamento', value === 'true')}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="true">Pago</SelectItem>
+                    <SelectItem value="false">Pendente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 col-span-2">
+                <Label>Descrição do Pedido</Label>
+                <Textarea
+                  placeholder="Detalhes do pedido..."
+                  value={formData.descricao || ''}
+                  onChange={(e) => handleFormChange('descricao', e.target.value)}
+                />
+              </div>
+              {/* ✅ NOVA SEÇÃO: Seleção de Produtos */}
+              <div className="space-y-2 col-span-2 border-t pt-4 mt-2">
+                <Label className="text-base font-semibold">Produtos da OS</Label>
+                <p className="text-xs text-slate-500 mb-2">Adicione os produtos e quantidades relacionados a este serviço.</p>
+                <ProdutosOSSelect
+                  itens={formData.itensDoPedido || []}
+                  onChange={handleProdutosChange}
+                  onAddNew={handleNavigateToProdutos}
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="p-6 pt-4 border-t bg-white z-10 mt-auto">
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
             <Button onClick={handleSave}>Salvar</Button>
           </DialogFooter>

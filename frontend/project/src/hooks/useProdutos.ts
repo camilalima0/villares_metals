@@ -1,12 +1,13 @@
 import { useState } from 'react';
+import { getAuthHeader } from './utils.ts';
 
 const API_BASE_URL = 'http://localhost:8080/produtos';
 
 interface ProdutoData {
-  id_produto: number;
-  nome_produto: string;
-  peso_entrada: number;
-  peso_saida: number;
+  idProduto: number;
+  nomeProduto: string;
+  pesoEntrada: number;
+  pesoSaida: number;
 }
 
 export const useProdutos = () => {
@@ -18,7 +19,10 @@ export const useProdutos = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(API_BASE_URL);
+      // 2. USE A FUNÇÃO HELPER EM TODAS AS CHAMADAS 'fetch'
+      const response = await fetch(API_BASE_URL, {
+        headers: getAuthHeader()
+      });
       if (response.ok) {
         const dados = await response.json();
         setProdutos(dados);
@@ -32,16 +36,14 @@ export const useProdutos = () => {
     }
   };
 
-  const adicionarProduto = async (produto: Omit<ProdutoData, 'id_produto'>): Promise<boolean> => {
+  const adicionarProduto = async (produto: Omit<ProdutoData, 'idProduto'>): Promise<boolean> => {
     try {
       const response = await fetch(API_BASE_URL, {
+        headers: getAuthHeader(),
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(produto),
       });
-      
+
       return response.ok;
     } catch (err) {
       console.error('Erro ao adicionar produto:', err);
@@ -53,12 +55,10 @@ export const useProdutos = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeader(),
         body: JSON.stringify(produto),
       });
-      
+
       return response.ok;
     } catch (err) {
       console.error('Erro ao atualizar produto:', err);
@@ -69,9 +69,10 @@ export const useProdutos = () => {
   const deletarProduto = async (id: number): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE_URL}/${id}`, {
+        headers: getAuthHeader(),
         method: 'DELETE',
       });
-      
+
       return response.ok;
     } catch (err) {
       console.error('Erro ao deletar produto:', err);
@@ -79,10 +80,10 @@ export const useProdutos = () => {
     }
   };
 
-  return { 
-    produtos, 
-    loading, 
-    error, 
+  return {
+    produtos,
+    loading,
+    error,
     carregarProdutos,
     adicionarProduto,
     atualizarProduto,

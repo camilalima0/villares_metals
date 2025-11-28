@@ -1,6 +1,6 @@
 package villares_metals.sistema_web.domain;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -49,12 +49,12 @@ public class OrdemServico implements Serializable{
     private StatusProducao statusProducao;
     @Column(name = "valor_servico")
     private double valorServico;
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_cliente") // O nome da coluna FK na tabela ordem_servico
-    @JsonBackReference
+    @JsonIgnoreProperties("ordensServico")
     private Cliente cliente;
     // NOVO CAMPO: Lista de itens associativos (Ordem de Serviço 1:N OrdenaProduto)
-    @OneToMany(mappedBy = "ordemServico", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "ordemServico", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JsonManagedReference // Indica ao Jackson que este lado deve ser serializado
     private List<OrdenaProduto> itensDoPedido; // Nome do campo usado no Service/Controller
 

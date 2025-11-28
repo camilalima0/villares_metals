@@ -8,11 +8,11 @@ import { Label } from './ui/label';
 import { useClientes } from '../hooks/useClientes'; // ✅ IMPORTAR HOOK
 
 interface ClienteData {
-  id_cliente: number;
-  nome_cliente: string;
-  cnpj_cliente: string;
-  telefone_cliente: string;
-  email_cliente: string;
+  idCliente: number;
+  nomeCliente: string;
+  cnpjCliente: string;
+  telefoneCliente: string;
+  emailCliente: string;
 }
 
 // ❌ REMOVER initialData - vamos usar dados do backend
@@ -20,7 +20,7 @@ interface ClienteData {
 export default function Clientes() {
   // ✅ USAR HOOK EM VEZ DE useState
   const { clientes, loading, error, carregarClientes, adicionarCliente, atualizarCliente, deletarCliente } = useClientes();
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRow, setSelectedRow] = useState<number | null>(null);
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
@@ -68,7 +68,7 @@ export default function Clientes() {
     try {
       if (editingItem) {
         // ✅ EDITAR CLIENTE EXISTENTE
-        const success = await atualizarCliente(editingItem.id_cliente, formData as ClienteData);
+        const success = await atualizarCliente(editingItem.idCliente, formData as ClienteData);
         if (success) {
           carregarClientes(); // Recarrega a lista
         }
@@ -110,7 +110,7 @@ export default function Clientes() {
       <div className="mb-6">
         <h1 className="text-3xl mb-2">Clientes</h1>
         <p className="text-slate-600">Gerencie os clientes da empresa</p>
-        
+
         {/* ✅ MOSTRAR CONTADOR DE CLIENTES REAIS */}
         <p className="text-sm text-slate-500 mt-2">
           {clientes.length} cliente(s) cadastrado(s)
@@ -140,7 +140,7 @@ export default function Clientes() {
       <div className="border rounded-lg bg-white">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow key="header-row">
               <TableHead>ID</TableHead>
               <TableHead>Nome</TableHead>
               <TableHead>CNPJ</TableHead>
@@ -152,21 +152,21 @@ export default function Clientes() {
           <TableBody>
             {filteredData.map((item) => (
               <TableRow
-                key={item.id_cliente}
-                className={selectedRow === item.id_cliente ? 'bg-slate-50' : ''}
-                onDoubleClick={() => setSelectedRow(item.id_cliente)}
+                key={item.idCliente}
+                className={selectedRow === item.idCliente ? 'bg-slate-50' : ''}
+                onDoubleClick={() => setSelectedRow(item.idCliente)}
               >
-                <TableCell>{item.id_cliente}</TableCell>
-                <TableCell>{item.nome_cliente}</TableCell>
-                <TableCell>{item.cnpj_cliente}</TableCell>
-                <TableCell>{item.telefone_cliente}</TableCell>
-                <TableCell>{item.email_cliente}</TableCell>
+                <TableCell>{item.idCliente}</TableCell>
+                <TableCell>{item.nomeCliente}</TableCell>
+                <TableCell>{item.cnpjCliente}</TableCell>
+                <TableCell>{item.telefoneCliente}</TableCell>
+                <TableCell>{item.emailCliente}</TableCell>
                 <TableCell>
                   <div className="flex gap-2">
                     <Button size="sm" variant="ghost" onClick={() => handleEdit(item)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id_cliente)}>
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(item.idCliente)}>
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </div>
@@ -178,6 +178,85 @@ export default function Clientes() {
       </div>
 
       {/* ... (restante do código permanece igual - Advanced Search Dialog e Form Dialog) ... */}
+      {/* Advanced Search Dialog */}
+      <Dialog open={showAdvancedSearch} onOpenChange={setShowAdvancedSearch}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Busca Avançada - Clientes</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>ID Cliente</Label>
+              <Input type="number" placeholder="Ex. 2" />
+            </div>
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input placeholder="Ex. Loja do João" />
+            </div>
+            <div className="space-y-2">
+              <Label>CNPJ</Label>
+              <Input placeholder="Ex. 04.036.070/0001-37" />
+            </div>
+            <div className="space-y-2">
+              <Label>Telefone</Label>
+              <Input placeholder="Ex. (19) 98716-6891" />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input placeholder="Ex. joão@loja.com" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdvancedSearch(false)}>Cancelar</Button>
+            <Button onClick={() => setShowAdvancedSearch(false)}>Buscar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add/Edit Form Dialog */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingItem ? 'Editar' : 'Adicionar'} Cliente</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome</Label>
+              <Input placeholder="Ex. Loja do João"
+                value={formData.nomeCliente || ''}
+                onChange={(e) => setFormData({ ...formData, nomeCliente: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>CNPJ</Label>
+                <Input placeholder="Ex. 04.036.070/0001-37"
+                  value={formData.cnpjCliente || ''}
+                  onChange={(e) => setFormData({ ...formData, cnpjCliente: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Telefone</Label>
+                <Input placeholder="Ex. (19) 98716-6891"
+                  value={formData.telefoneCliente || ''}
+                  onChange={(e) => setFormData({ ...formData, telefoneCliente: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input placeholder="Ex. joão@loja.com"
+                  value={formData.emailCliente || ''}
+                  onChange={(e) => setFormData({ ...formData, emailCliente: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+            <Button onClick={handleSave}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

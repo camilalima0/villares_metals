@@ -1,6 +1,6 @@
 package villares_metals.sistema_web.domain;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -38,6 +38,6 @@ public class Cliente implements Serializable{
     @Column(name = "email_cliente")
     private String emailCliente;
     @OneToMany(mappedBy = "cliente", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference
+    @JsonIgnoreProperties("cliente")
     private List<OrdemServico> ordensServico;
 }

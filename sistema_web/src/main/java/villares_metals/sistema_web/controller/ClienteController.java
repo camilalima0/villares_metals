@@ -1,6 +1,8 @@
 package villares_metals.sistema_web.controller;
 
 import java.util.List;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,6 +39,12 @@ public class ClienteController {
     @PutMapping(path = "/clientes/{id}")
     public Cliente putCliente(@RequestBody Cliente cliente){
         return clienteService.postCliente(cliente);
+    }
+    
+    @DeleteMapping(path = "/clientes/{id}")
+    public ResponseEntity<Void> deleteCliente(@PathVariable("id") Integer id){
+        clienteService.deleteCliente(id);
+        return ResponseEntity.noContent().build(); // Retorna status 204 (Sucesso sem conteúdo)
     }
       
 }

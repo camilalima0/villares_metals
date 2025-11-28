@@ -1,9 +1,10 @@
 import { useState } from 'react';
+import { getAuthHeader } from './utils.ts';
 
 const API_BASE_URL = 'http://localhost:8080/funcionarios';
 
 interface FuncionarioData {
-  id_funcionario: number;
+  idFuncionario: number;
   userFuncionario: string;  // ✅ Campo correto
   senhaFuncionario: string; // ✅ Campo correto
 }
@@ -17,7 +18,9 @@ export const useFuncionarios = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(API_BASE_URL);
+      const response = await fetch(API_BASE_URL, {
+        headers: getAuthHeader()
+      });
       if (response.ok) {
         const dados = await response.json();
         setFuncionarios(dados);
@@ -31,13 +34,11 @@ export const useFuncionarios = () => {
     }
   };
 
-  const adicionarFuncionario = async (funcionario: Omit<FuncionarioData, 'id_funcionario'>): Promise<boolean> => {
+  const adicionarFuncionario = async (funcionario: Omit<FuncionarioData, 'idFuncionario'>): Promise<boolean> => {
     try {
       const response = await fetch(API_BASE_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeader(),
         body: JSON.stringify(funcionario),
       });
       
@@ -52,9 +53,7 @@ export const useFuncionarios = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getAuthHeader(),
         body: JSON.stringify(funcionario),
       });
       
@@ -69,6 +68,7 @@ export const useFuncionarios = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/${id}`, {
         method: 'DELETE',
+        headers: getAuthHeader(),
       });
       
       return response.ok;

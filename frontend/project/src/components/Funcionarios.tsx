@@ -9,7 +9,7 @@ import { useFuncionarios } from '../hooks/useFuncionarios';
 
 // ✅ INTERFACE CORRIGIDA - Campos da sua API
 interface FuncionarioData {
-  id_funcionario: number;
+  idFuncionario: number;
   userFuncionario: string;  // ✅ Campo correto da sua API
   senhaFuncionario: string; // ✅ Campo correto da sua API
 }
@@ -61,12 +61,12 @@ export default function Funcionarios() {
   const handleSave = async () => {
     try {
       if (editingItem) {
-        const success = await atualizarFuncionario(editingItem.id_funcionario, formData as FuncionarioData);
+        const success = await atualizarFuncionario(editingItem.idFuncionario, formData as FuncionarioData);
         if (success) {
           carregarFuncionarios();
         }
       } else {
-        const success = await adicionarFuncionario(formData as Omit<FuncionarioData, 'id_funcionario'>);
+        const success = await adicionarFuncionario(formData as Omit<FuncionarioData, 'idFuncionario'>);
         if (success) {
           carregarFuncionarios();
         }
@@ -100,7 +100,7 @@ export default function Funcionarios() {
     <div className="p-8">
       <div className="mb-6">
         <h1 className="text-3xl mb-2">Funcionários</h1>
-        <p className="text-slate-600">Gerencie os funcionários e seus acessos ao sistema</p>
+        <p className="text-slate-600">Gerencie os funcionários</p>
         <p className="text-sm text-slate-500 mt-2">
           {funcionarios.length} funcionário(s) cadastrado(s)
         </p>
@@ -129,7 +129,7 @@ export default function Funcionarios() {
       <div className="border rounded-lg bg-white">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow key="header-row">
               <TableHead>ID</TableHead>
               <TableHead>Username</TableHead>
               <TableHead>Senha</TableHead>
@@ -139,11 +139,11 @@ export default function Funcionarios() {
           <TableBody>
             {filteredData.map((item) => (
               <TableRow
-                key={item.id_funcionario}
-                className={selectedRow === item.id_funcionario ? 'bg-slate-50' : ''}
-                onDoubleClick={() => setSelectedRow(item.id_funcionario)}
+                key={item.idFuncionario}
+                className={selectedRow === item.idFuncionario ? 'bg-slate-50' : ''}
+                onDoubleClick={() => setSelectedRow(item.idFuncionario)}
               >
-                <TableCell>{item.id_funcionario}</TableCell>
+                <TableCell>{item.idFuncionario}</TableCell>
                 <TableCell>{item.userFuncionario}</TableCell>
                 <TableCell>{item.senhaFuncionario}</TableCell>
                 <TableCell>
@@ -151,7 +151,7 @@ export default function Funcionarios() {
                     <Button size="sm" variant="ghost" onClick={() => handleEdit(item)}>
                       <Edit className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => handleDelete(item.id_funcionario)}>
+                    <Button size="sm" variant="ghost" onClick={() => handleDelete(item.idFuncionario)}>
                       <Trash2 className="h-4 w-4 text-red-500" />
                     </Button>
                   </div>
