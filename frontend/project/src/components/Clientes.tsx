@@ -127,10 +127,6 @@ export default function Clientes() {
             className="pl-10"
           />
         </div>
-        <Button variant="outline" onClick={() => setShowAdvancedSearch(true)}>
-          <Filter className="h-4 w-4 mr-2" />
-          Busca Avançada
-        </Button>
         <Button onClick={handleAdd}>
           <Plus className="h-4 w-4 mr-2" />
           Adicionar Novo
@@ -176,42 +172,6 @@ export default function Clientes() {
           </TableBody>
         </Table>
       </div>
-
-      {/* ... (restante do código permanece igual - Advanced Search Dialog e Form Dialog) ... */}
-      {/* Advanced Search Dialog */}
-      <Dialog open={showAdvancedSearch} onOpenChange={setShowAdvancedSearch}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Busca Avançada - Clientes</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>ID Cliente</Label>
-              <Input type="number" placeholder="Ex. 2" />
-            </div>
-            <div className="space-y-2">
-              <Label>Nome</Label>
-              <Input placeholder="Ex. Loja do João" />
-            </div>
-            <div className="space-y-2">
-              <Label>CNPJ</Label>
-              <Input placeholder="Ex. 04.036.070/0001-37" />
-            </div>
-            <div className="space-y-2">
-              <Label>Telefone</Label>
-              <Input placeholder="Ex. (19) 98716-6891" />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input placeholder="Ex. joão@loja.com" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdvancedSearch(false)}>Cancelar</Button>
-            <Button onClick={() => setShowAdvancedSearch(false)}>Buscar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Add/Edit Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>

@@ -128,10 +128,6 @@ export default function Produtos() {
             className="pl-10"
           />
         </div>
-        <Button variant="outline" onClick={() => setShowAdvancedSearch(true)}>
-          <Filter className="h-4 w-4 mr-2" />
-          Busca Avançada
-        </Button>
         <Button onClick={handleAdd}>
           <Plus className="h-4 w-4 mr-2" />
           Adicionar Novo
@@ -219,45 +215,6 @@ export default function Produtos() {
           </TableBody>
         </Table>
       </div>
-
-      {/* Advanced Search Dialog */}
-      <Dialog open={showAdvancedSearch} onOpenChange={setShowAdvancedSearch}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Busca Avançada - Produtos</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>ID Produto</Label>
-              <Input type="number" placeholder="Filtrar por ID" />
-            </div>
-            <div className="space-y-2">
-              <Label>Nome do Produto</Label>
-              <Input placeholder="Nome do produto" />
-            </div>
-            <div className="space-y-2">
-              <Label>Peso Entrada Mínimo (kg)</Label>
-              <Input type="number" step="0.01" placeholder="0.00" />
-            </div>
-            <div className="space-y-2">
-              <Label>Peso Entrada Máximo (kg)</Label>
-              <Input type="number" step="0.01" placeholder="0.00" />
-            </div>
-            <div className="space-y-2">
-              <Label>Peso Saída Mínimo (kg)</Label>
-              <Input type="number" step="0.01" placeholder="0.00" />
-            </div>
-            <div className="space-y-2">
-              <Label>Peso Saída Máximo (kg)</Label>
-              <Input type="number" step="0.01" placeholder="0.00" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdvancedSearch(false)}>Cancelar</Button>
-            <Button onClick={() => setShowAdvancedSearch(false)}>Buscar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Add/Edit Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>

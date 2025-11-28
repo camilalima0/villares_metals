@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from './ui/button';
-import { Factory, LogOut, FileText, Package, Users, UserCog } from 'lucide-react';
+import { Factory, LogOut, FileText, Package, Users, UserCog, BarChart3 } from 'lucide-react';
 import OrdemServico from './OrdemServico';
 import Produtos from './Produtos';
 import Clientes from './Clientes';
@@ -11,7 +11,7 @@ interface DashboardProps {
   onLogout: () => void;
 }
 
-type Page = 'ordens' | 'produtos' | 'clientes' | 'funcionarios';
+type Page = 'ordens' | 'produtos' | 'clientes' | 'funcionarios' | 'desempenho';
 
 export default function Dashboard({ currentUser, onLogout }: DashboardProps) {
   const [currentPage, setCurrentPage] = useState<Page>('ordens');

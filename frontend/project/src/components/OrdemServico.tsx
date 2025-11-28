@@ -50,17 +50,6 @@ export default function OrdemServico() {
   const [editingItem, setEditingItem] = useState<OrdemServicoData | null>(null);
   const [formData, setFormData] = useState<Partial<OrdemServicoData>>({});
 
-  // ✅ NOVO ESTADO: Armazena os valores do formulário de Busca Avançada
-  // Inicializamos com valores vazios ou padrões
-  const [filtros, setFiltros] = useState<SearchFilters>({
-    dataEntregaInicio: '',
-    dataEntregaFim: '',
-    valorMinimo: 0,
-    valorMaximo: 0,
-    statusProducao: 'TODOS',
-    statusPagamento: 'TODOS',
-    descricao: ''
-  });
 
   // Carrega a lista inicial ao montar o componente
   useEffect(() => {
@@ -78,19 +67,6 @@ export default function OrdemServico() {
 
     return clienteMatch || idMatch || statusMatch;
   });
-
-  // ✅ FUNÇÃO DE BUSCA AVANÇADA
-  // Chamada quando o usuário clica em "Aplicar Filtros" no modal
-  const handleAdvancedSearch = async () => {
-    // Chama a função do hook que faz a requisição GET com os parâmetros na URL
-    await buscarOrdensAvancada(filtros);
-    setShowAdvancedSearch(false); // Fecha o modal após buscar
-  };
-
-  // Helper para atualizar o estado dos filtros de busca
-  const handleFilterChange = (field: keyof SearchFilters, value: any) => {
-    setFiltros(prev => ({ ...prev, [field]: value }));
-  };
 
   // --- Funções de CRUD (Adicionar, Editar, Deletar) ---
 
@@ -251,10 +227,6 @@ export default function OrdemServico() {
             className="pl-10"
           />
         </div>
-        <Button variant="outline" onClick={() => setShowAdvancedSearch(true)}>
-          <Filter className="h-4 w-4 mr-2" />
-          Busca Avançada
-        </Button>
         <Button onClick={handleAdd}>
           <Plus className="h-4 w-4 mr-2" />
           Adicionar Novo
@@ -351,95 +323,6 @@ export default function OrdemServico() {
           </TableBody>
         </Table>
       </div>
-
-      <Dialog open={showAdvancedSearch} onOpenChange={setShowAdvancedSearch}>
-        <DialogContent className="max-w-4xl max-h-[70vh] flex flex-col overflow-hidden">
-          <DialogHeader>
-            <DialogTitle>Busca Avançada - Ordens de Serviço</DialogTitle>
-          </DialogHeader>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-            {/* 1. Filtro por Descrição */}
-            <div className="col-span-1 md:col-span-2 space-y-2">
-              <Label>Descrição</Label>
-              <Input
-                placeholder="Palavras-chave na descrição"
-                value={filtros.descricao || ''}
-                onChange={(e) => handleFilterChange('descricao', e.target.value)}
-              />
-            </div>
-
-            {/* 2. Filtro por Data de Entrega */}
-            <div className="space-y-2">
-              <Label>Data Entrega (De)</Label>
-              <Input type="date"
-                value={filtros.dataEntregaInicio || ''}
-                onChange={(e) => handleFilterChange('dataEntregaInicio', e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Data Entrega (Até)</Label>
-              <Input type="date"
-                value={filtros.dataEntregaFim || ''}
-                onChange={(e) => handleFilterChange('dataEntregaFim', e.target.value)}
-              />
-            </div>
-
-            {/* 3. Filtro por Valor */}
-            <div className="space-y-2">
-              <Label>Valor Mínimo (R$)</Label>
-              <Input type="number" placeholder="0,00"
-                value={filtros.valorMinimo || ''}
-                onChange={(e) => handleFilterChange('valorMinimo', parseFloat(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Valor Máximo (R$)</Label>
-              <Input type="number" placeholder="0,00"
-                value={filtros.valorMaximo || ''}
-                onChange={(e) => handleFilterChange('valorMaximo', parseFloat(e.target.value))}
-              />
-            </div>
-
-            {/* 4. Filtro por Status Produção */}
-            <div className="space-y-2">
-              <Label>Status Produção</Label>
-              <Select
-                value={filtros.statusProducao || 'TODOS'}
-                onValueChange={(val: any) => handleFilterChange('statusProducao', val)}
-              >
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TODOS">Todos</SelectItem>
-                  <SelectItem value="FILA">Fila</SelectItem>
-                  <SelectItem value="PRODUCAO">Produção</SelectItem>
-                  <SelectItem value="PRONTO">Pronto</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 5. Filtro por Status Pagamento */}
-            <div className="space-y-2">
-              <Label>Status Pagamento</Label>
-              <Select
-                value={filtros.statusPagamento || 'TODOS'}
-                onValueChange={(val: any) => handleFilterChange('statusPagamento', val)}
-              >
-                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="TODOS">Todos</SelectItem>
-                  <SelectItem value="true">Pago</SelectItem>
-                  <SelectItem value="false">Pendente</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdvancedSearch(false)}>Cancelar</Button>
-            <Button onClick={handleAdvancedSearch}>Aplicar Filtros</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col overflow-hidden">

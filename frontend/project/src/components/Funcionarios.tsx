@@ -116,10 +116,6 @@ export default function Funcionarios() {
             className="pl-10"
           />
         </div>
-        <Button variant="outline" onClick={() => setShowAdvancedSearch(true)}>
-          <Filter className="h-4 w-4 mr-2" />
-          Busca Avançada
-        </Button>
         <Button onClick={handleAdd}>
           <Plus className="h-4 w-4 mr-2" />
           Adicionar Novo
@@ -161,29 +157,6 @@ export default function Funcionarios() {
           </TableBody>
         </Table>
       </div>
-
-      {/* Advanced Search Dialog */}
-      <Dialog open={showAdvancedSearch} onOpenChange={setShowAdvancedSearch}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Busca Avançada - Funcionários</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>ID Funcionário</Label>
-              <Input type="number" placeholder="Filtrar por ID" />
-            </div>
-            <div className="space-y-2">
-              <Label>Username</Label>
-              <Input placeholder="Nome de usuário" />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdvancedSearch(false)}>Cancelar</Button>
-            <Button onClick={() => setShowAdvancedSearch(false)}>Buscar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Add/Edit Form Dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
